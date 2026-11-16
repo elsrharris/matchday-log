@@ -18,6 +18,13 @@ header .in{max-width:780px;margin:0 auto;display:flex;align-items:center;gap:10p
 header .ball{width:34px;height:34px;border-radius:50%;background:var(--yellow);color:var(--blue);display:grid;place-items:center;font-weight:800;font-size:.8rem;flex:none}
 header h1{margin:0;font-size:1.1rem;line-height:1.1}
 header small{opacity:.8;font-size:.78rem}
+header .pill{margin-left:auto;flex:none;font-size:.72rem;font-weight:700;text-decoration:none;color:var(--blue);background:var(--yellow);border-radius:20px;padding:5px 10px;white-space:nowrap}
+header .pill.ok{background:rgba(255,255,255,.15);color:#fff}
+header .pill.warn{background:#fff;color:var(--blue)}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;background:#fff;color:#1f1f1f;border:1px solid #c6cbd6;padding:12px}
+.gbtn b{font:800 1.05rem system-ui;color:#4285F4}
+details.alt summary{cursor:pointer;color:var(--blue);font-size:.85rem;margin-top:12px}
+.who-box{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 main{max-width:780px;margin:0 auto;padding:14px}
 nav.tabs{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:center;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:20}
 nav.tabs .in{display:flex;width:100%;max-width:780px}
@@ -120,13 +127,13 @@ table.rank td.p{color:var(--muted);width:24px}
 </style>
 </head>
 <body>
-<header><div class="in"><div class="ball">LUFC</div><div><h1>Matchday Log</h1><small>Every Leeds United game I've been to</small></div></div></header>
+<header><div class="in"><div class="ball">LUFC</div><div><h1>Matchday Log</h1><small>Every Leeds United game I've been to</small></div><a id="syncpill" class="pill" href="#/data" hidden></a></div></header>
 <main id="app"></main>
 <nav class="tabs"><div class="in">
   <a href="#/" data-t="list"><span class="i">📋</span>Matches</a>
   <a href="#/stats" data-t="stats"><span class="i">📊</span>Stats</a>
   <a href="#/new" data-t="new" class="add"><span class="i">+</span>Add</a>
-  <a href="#/data" data-t="data"><span class="i">💾</span>Backup</a>
+  <a href="#/data" data-t="data"><span class="i">☁️</span>Sync</a>
 </div></nav>
 <datalist id="players"></datalist>
 <datalist id="comps"></datalist>
@@ -151,12 +158,26 @@ function mkStore(name){
 const LS = mkStore('localStorage'), SS = mkStore('sessionStorage');
 let db = load();
 function load(){
-  try { const d = JSON.parse(LS.get(KEY)); if (d && Array.isArray(d.matches)) return d; } catch(e){}
-  return { matches: [], meta: {} };
+  try { const d = JSON.parse(LS.get(KEY)); if (d && Array.isArray(d.matches)){ d.meta = d.meta || {}; d.tomb = d.tomb || {}; return d; } } catch(e){}
+  return { matches: [], meta: {}, tomb: {} };
+}
+/* ids present at the last save, so removed matches can be recorded as deletions (tombstones) and synced */
+let knownIds = new Set(db.matches.map(m => m.id));
+function trackDeletes(){
+  const now = new Set(db.matches.map(m => m.id)), t = new Date().toISOString();
+  knownIds.forEach(id => { if(!now.has(id)) db.tomb[id] = t; });
+  now.forEach(id => delete db.tomb[id]);
+  knownIds = now;
+}
+function saveLocal(){
+  try { LS.put(KEY, JSON.stringify(db)); return true; }
+  catch(e){ alert('Could not save on this device: ' + e.message + '\nPlease export a backup from the Sync tab.'); return false; }
 }
 function save(){
-  try { LS.put(KEY, JSON.stringify(db)); return true; }
-  catch(e){ alert('Could not save on this device: ' + e.message + '\nPlease export a backup from the Backup tab.'); return false; }
+  trackDeletes();
+  const ok = saveLocal();
+  cloudReconcile();
+  return ok;
 }
 try { navigator.storage && navigator.storage.persist && navigator.storage.persist().catch(() => {}); } catch(e){}
 
@@ -208,7 +229,7 @@ document.addEventListener('click', e => {
 });
 function fromLocation(){ const h = location.hash.slice(1) || '/'; if(h !== curPath){ curPath = h; route(); } }
 window.addEventListener('popstate', fromLocation);
-function route(){
+function route(keepScroll){
   const parts = curPath.split('/').filter(Boolean);
   const [view, id] = parts;
   document.querySelectorAll('nav.tabs a').forEach(a => a.classList.toggle('on', a.dataset.t === (view || 'list') || (view === 'edit' && a.dataset.t === 'new')));
@@ -221,8 +242,10 @@ function route(){
   else if(view === 'data') dataView();
   else listView();
   if(EPHEMERAL) app.insertAdjacentHTML('afterbegin', `<div class="banner">⚠️ Preview mode: this browser window isn't letting the page save, so anything you enter will vanish when you close it. Once it's on its own website, saving works normally.</div>`);
-  try { window.scrollTo(0,0); } catch(e){}
+  if(!keepScroll) try { window.scrollTo(0,0); } catch(e){}
 }
+/* re-draw after a change arrives from another device – but never while a match form is open */
+function rerender(){ const v = curPath.split('/').filter(Boolean)[0]; if(v === 'new' || v === 'edit') return; route(true); }
 window.addEventListener('hashchange', fromLocation);
 
 /* ---------- list ---------- */
@@ -235,9 +258,9 @@ function listView(){
   const seasons = [...new Set(all.map(m => seasonOf(m.date)))];
   const comps = [...new Set(all.map(m => m.comp).filter(Boolean))].sort();
   const last = db.meta.lastBackup ? new Date(db.meta.lastBackup) : null;
-  const nudge = !last || (Date.now() - last) > 30*864e5;
+  const nudge = !cloud.user && (!last || (Date.now() - last) > 30*864e5);
   app.innerHTML = `
-    ${nudge ? `<div class="banner">💾 ${last ? 'Last backup was over a month ago.' : 'Matches are saved on this device only.'} <a href="#/data">Back up now</a></div>` : ''}
+    ${nudge ? `<div class="banner">☁️ Matches are only saved on this device. <a href="#/data">Sign in to back up &amp; sync automatically</a></div>` : ''}
     <div class="filters">
       <input id="fq" type="search" placeholder="Search opponent, player, ground…" value="${esc(filt.q)}">
       <select id="fs"><option value="">All seasons</option>${seasons.map(s => `<option ${s===filt.season?'selected':''}>${s}</option>`).join('')}</select>
@@ -541,7 +564,7 @@ function importJSON(input){
     try {
       const d = JSON.parse(rd.result); if(!d || !Array.isArray(d.matches)) throw new Error('Not a Matchday Log backup file');
       const replace = db.matches.length && confirm(`Backup has ${d.matches.length} matches.\n\nOK = REPLACE everything on this device with the backup\nCancel = MERGE (add any matches not already here)`);
-      if(replace || !db.matches.length) db.matches = d.matches;
+      if(replace || !db.matches.length){ const t = new Date().toISOString(); db.matches = d.matches.map(m => ({...m, id: m.id || uid(), updated: t})); }
       else { const ids = new Set(db.matches.map(m => m.id)); d.matches.forEach(m => { if(!ids.has(m.id)) db.matches.push(m); else { const i = db.matches.findIndex(x => x.id === m.id); if((m.updated||'') > (db.matches[i].updated||'')) db.matches[i] = m; } }); }
       save(); alert('Done – ' + db.matches.length + ' matches on this device.'); go('#/');
     } catch(e){ alert('Could not read that file: ' + e.message); }
@@ -549,37 +572,193 @@ function importJSON(input){
   rd.readAsText(file);
 }
 function wipe(){
-  if(prompt('This deletes ALL matches on this device. Type DELETE to confirm.') === 'DELETE'){ db = {matches:[], meta:{}}; save(); go('#/'); }
+  if(prompt(cloud.user ? 'This deletes ALL matches – on this device, in the cloud and on every device you\'re signed in on. Type DELETE to confirm.' : 'This deletes ALL matches on this device. Type DELETE to confirm.') === 'DELETE'){ db.matches = []; save(); go('#/'); }
 }
 function dataView(){
   const last = db.meta.lastBackup;
   app.innerHTML = `
-    <h2>Backup &amp; export</h2>
-    <div class="card"><h3>Where are my matches saved?</h3>
-      <p class="small" style="margin-top:0">Everything is saved privately in this browser on this device – nothing is sent anywhere. That means two things:</p>
-      <ul class="small" style="padding-left:18px">
-        <li><b>Back up regularly.</b> If the browser data is cleared, or the phone is replaced, the backup file is how you get everything back.</li>
-        <li><b>Phone and computer don't sync on their own.</b> To move matches across, export a backup on one and import it on the other.</li>
-        <li><b>On iPhone:</b> tap Share → <i>Add to Home Screen</i> and always open it from there – Safari is less likely to clear its data.</li>
-      </ul>
-      <p class="small muted">${db.matches.length} matches stored · Last backup: ${last ? new Date(last).toLocaleString('en-GB') : 'never'}</p>
-    </div>
-    <div class="card"><h3>Back up</h3>
-      <p class="small muted" style="margin-top:0">Saves a file with every match. Keep a copy somewhere safe – email it to yourself, or put it in Google Drive / iCloud.</p>
+    <h2>Sync &amp; backup</h2>
+    ${syncCardHTML()}
+    <div class="card"><h3>Backup file</h3>
+      <p class="small muted" style="margin-top:0">${cloud.user ? 'Your matches are already backed up in the cloud. A file is an extra copy you control – handy once a season.' : 'Saves a file with every match. Keep a copy somewhere safe – email it to yourself, or put it in Google Drive / iCloud.'}<br>${db.matches.length} matches on this device · Last backup file: ${last ? new Date(last).toLocaleString('en-GB') : 'never'}</p>
       <button onclick="exportJSON()">⬇️ Download backup file</button>
     </div>
     <div class="card"><h3>Restore / move to another device</h3>
-      <p class="small muted" style="margin-top:0">Choose a backup file made by this site.</p>
+      <p class="small muted" style="margin-top:0">Choose a backup file made by this site.${cloud.user ? ' Restored matches are synced to your other devices too.' : ''}</p>
       <input type="file" accept=".json,application/json" onchange="importJSON(this)">
     </div>
     <div class="card"><h3>Spreadsheet</h3>
       <p class="small muted" style="margin-top:0">A summary of every match to open in Excel or Google Sheets (for viewing – to restore, use the backup file above).</p>
       <button class="sec" onclick="exportCSV()">⬇️ Download spreadsheet (CSV)</button>
     </div>
-    <div class="card"><h3>Danger zone</h3><button class="danger" onclick="wipe()">Delete all matches on this device</button></div>`;
+    <div class="card"><h3>Danger zone</h3><button class="danger" onclick="wipe()">Delete all matches${cloud.user ? ' everywhere' : ' on this device'}</button></div>`;
+}
+
+/* ---------- cloud sync (Firebase) ----------
+   This device's copy in localStorage is what the app reads and writes, so it works with no signal.
+   When signed in, each match is also a document at users/{uid}/matches/{id}. Deleted matches become
+   small "tombstone" documents so a deletion on one device isn't undone by another. When the same
+   match differs, the copy with the later `updated` time wins. */
+const FB_VER = '12.19.0';
+const FB_CFG = {
+  apiKey: "AIzaSyCFd1KRDQOHk5KYfQ9WKlSAohPUZkVa0T8",
+  authDomain: "matchday-log.firebaseapp.com",
+  projectId: "matchday-log",
+  storageBucket: "matchday-log.firebasestorage.app",
+  messagingSenderId: "339121033614",
+  appId: "1:339121033614:web:0b87a1a885460145f794df"
+};
+const cloud = { fb:null, failed:false, user:undefined, col:null, unsub:null, remote:new Map(), live:false, pending:false, fromCache:false, error:'' };
+
+async function cloudInit(){
+  try {
+    const base = `https://www.gstatic.com/firebasejs/${FB_VER}/firebase-`;
+    const [A, U, F] = await Promise.all([import(base + 'app.js'), import(base + 'auth.js'), import(base + 'firestore.js')]);
+    const app = A.initializeApp(FB_CFG);
+    cloud.fb = { U, F, auth: U.getAuth(app), fs: F.getFirestore(app) };
+    U.onAuthStateChanged(cloud.fb.auth, user => user ? cloudStart(user) : cloudStop());
+  } catch(e){
+    cloud.failed = true; cloud.user = null; cloudStatus();
+    if(curPath === '/data') rerender();
+  }
+}
+
+function cloudStart(user){
+  if(cloud.user && cloud.user.uid === user.uid) return;
+  const { F, fs } = cloud.fb;
+  if(db.meta.uid && db.meta.uid !== user.uid && db.matches.length &&
+     !confirm(`This device has ${db.matches.length} matches from a different account.\n\nOK = add them to ${user.email || 'this account'} as well\nCancel = remove them from this device`)){
+    db.matches = []; db.tomb = {}; knownIds = new Set();
+  }
+  cloud.user = user; cloud.live = false; cloud.error = '';
+  db.meta.uid = user.uid; db.meta.email = user.email || ''; saveLocal();
+  cloud.col = F.collection(fs, 'users', user.uid, 'matches');
+  cloud.unsub = F.onSnapshot(cloud.col, { includeMetadataChanges: true }, snap => {
+    cloud.fromCache = snap.metadata.fromCache;
+    cloud.pending = snap.metadata.hasPendingWrites;
+    if(!cloud.live && snap.metadata.fromCache){ cloudStatus(); return; } // wait for the real server copy before comparing
+    cloud.remote = new Map(snap.docs.map(d => [d.id, { ...d.data(), id: d.id }]));
+    cloud.live = true; cloud.error = '';
+    if(!snap.metadata.hasPendingWrites) db.meta.lastSync = new Date().toISOString();
+    cloudReconcile();
+    cloudStatus();
+  }, err => { cloud.error = err.code || err.message; cloudStatus(); });
+  cloudStatus(); rerender();
+}
+
+function cloudStop(){
+  if(cloud.unsub) cloud.unsub();
+  Object.assign(cloud, { user:null, col:null, unsub:null, remote:new Map(), live:false, pending:false });
+  cloudStatus(); rerender();
+}
+
+function cloudReconcile(){
+  if(!cloud.live || !cloud.user) return;
+  const local = new Map(db.matches.map(m => [m.id, m]));
+  const ids = new Set([...local.keys(), ...Object.keys(db.tomb), ...cloud.remote.keys()]);
+  const push = []; let changed = false, tombs = false;
+  for(const id of ids){
+    const l = local.get(id), r = cloud.remote.get(id);
+    const lt = l ? (l.updated || '') : (id in db.tomb ? db.tomb[id] : null);
+    const rt = r ? (r.updated || '') : null;
+    if(rt !== null && (lt === null || rt > lt)){            // the cloud copy is newer
+      if(r.deleted){ if(l){ local.delete(id); changed = true; } db.tomb[id] = rt; tombs = true; }
+      else { local.set(id, r); if(id in db.tomb){ delete db.tomb[id]; tombs = true; } changed = true; }
+    } else if(lt !== null && (rt === null || lt > rt)){     // this device's copy is newer
+      push.push(l || { id, deleted: true, updated: lt });
+    }
+  }
+  if(changed){ db.matches = [...local.values()]; knownIds = new Set(local.keys()); }
+  if(changed || tombs) saveLocal();
+  if(changed) rerender();
+  if(push.length){
+    const { F, fs } = cloud.fb;
+    for(let i = 0; i < push.length; i += 400){
+      const b = F.writeBatch(fs);
+      push.slice(i, i + 400).forEach(m => b.set(F.doc(cloud.col, m.id), JSON.parse(JSON.stringify(m))));
+      b.commit().catch(e => { cloud.error = e.code || e.message; cloudStatus(); });
+    }
+  }
+}
+
+function cloudStatus(){
+  const p = $('#syncpill'); if(!p) return;
+  let txt = '', cls = '';
+  if(cloud.user === undefined && !cloud.failed){ p.hidden = true; return; }
+  if(!cloud.user){ txt = cloud.failed ? 'Offline' : 'Sign in to sync'; cls = ''; }
+  else if(cloud.error){ txt = '⚠️ Sync problem'; cls = 'warn'; }
+  else if(!navigator.onLine || cloud.fromCache){ txt = '📴 Offline – saved here'; cls = 'warn'; }
+  else if(cloud.pending || !cloud.live){ txt = '⏳ Syncing…'; cls = 'ok'; }
+  else { txt = '✓ Synced'; cls = 'ok'; }
+  p.textContent = txt; p.className = 'pill ' + cls; p.hidden = false;
+  const s = $('#syncstate'); if(s) s.textContent = syncStateText();
+}
+window.addEventListener('online', cloudStatus);
+window.addEventListener('offline', cloudStatus);
+
+function syncStateText(){
+  if(cloud.error) return 'There was a problem syncing (' + cloud.error + '). Your matches are still saved on this device.';
+  if(!navigator.onLine || cloud.fromCache) return 'No internet right now – changes are saved on this device and will sync when you\'re back online.';
+  if(cloud.pending || !cloud.live) return 'Syncing…';
+  return 'All matches synced' + (db.meta.lastSync ? ' · ' + new Date(db.meta.lastSync).toLocaleString('en-GB', {dateStyle:'medium', timeStyle:'short'}) : '') + '.';
+}
+
+function syncCardHTML(){
+  if(cloud.user) return `<div class="card"><h3>☁️ Cloud sync is on</h3>
+      <div class="who-box"><div class="small">Signed in as <b>${esc(cloud.user.email || 'you')}</b><div class="muted" id="syncstate">${esc(syncStateText())}</div></div>
+      <button class="sec" onclick="cloudSignOut()">Sign out</button></div>
+      <p class="small muted" style="margin:10px 0 0">Every match is backed up automatically. Sign in with the same account on your phone, tablet or computer and they'll all show the same matches.</p></div>`;
+  if(cloud.failed) return `<div class="card"><h3>☁️ Cloud sync</h3><p class="small muted" style="margin:0">Can't reach the sync service right now (no internet?). Your matches are safe on this device. <a href="#/data" onclick="location.reload()">Try again</a></p></div>`;
+  if(!cloud.fb) return `<div class="card"><h3>☁️ Cloud sync</h3><p class="small muted" style="margin:0">Loading…</p></div>`;
+  return `<div class="card"><h3>☁️ Turn on cloud sync</h3>
+      <p class="small" style="margin-top:0">Sign in once on each device. Your matches are then backed up automatically and stay the same on your phone and computer. Any matches already on this device are added to your account.</p>
+      <button class="gbtn" onclick="cloudGoogle()"><b>G</b> Sign in with Google</button>
+      <details class="alt"><summary>Use an email and password instead</summary>
+        <div style="margin-top:10px">
+          <label class="f">Email<input id="aem" type="email" autocomplete="username" autocapitalize="none"></label>
+          <label class="f">Password<input id="apw" type="password" autocomplete="current-password" placeholder="at least 6 characters"></label>
+          <div class="btns"><button onclick="cloudEmail(false)">Sign in</button><button class="sec" onclick="cloudEmail(true)">Create account</button><button class="add" onclick="cloudReset()">Forgot password?</button></div>
+        </div>
+      </details></div>`;
+}
+
+const authMsg = e => ({
+  'auth/popup-blocked': 'The sign-in window was blocked. Please allow pop-ups for this site and try again.',
+  'auth/unauthorized-domain': 'This website address isn\'t allowed to sign in yet (add it under Firebase → Authentication → Settings → Authorized domains).',
+  'auth/operation-not-allowed': 'This sign-in method isn\'t switched on in Firebase yet.',
+  'auth/invalid-credential': 'That email and password don\'t match.',
+  'auth/wrong-password': 'That email and password don\'t match.',
+  'auth/user-not-found': 'No account with that email – tap "Create account" first.',
+  'auth/email-already-in-use': 'There\'s already an account with that email – tap "Sign in" instead (or sign in with Google if that\'s how it was made).',
+  'auth/weak-password': 'Please use a password of at least 6 characters.',
+  'auth/invalid-email': 'That doesn\'t look like an email address.',
+  'auth/network-request-failed': 'No internet connection – try again when you\'re online.'
+})[e.code] || ('Sign-in didn\'t work: ' + (e.code || e.message));
+const quietAuth = e => ['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/user-cancelled'].includes(e.code);
+
+function cloudGoogle(){
+  if(!cloud.fb) return;
+  const { U, auth } = cloud.fb;
+  /* called straight from the tap (no await first) so browsers don't block the pop-up */
+  U.signInWithPopup(auth, new U.GoogleAuthProvider()).catch(e => { if(!quietAuth(e)) alert(authMsg(e)); });
+}
+function cloudEmail(create){
+  const { U, auth } = cloud.fb, em = $('#aem').value.trim(), pw = $('#apw').value;
+  if(!em || !pw){ alert('Please enter an email and password.'); return; }
+  (create ? U.createUserWithEmailAndPassword : U.signInWithEmailAndPassword)(auth, em, pw).catch(e => alert(authMsg(e)));
+}
+function cloudReset(){
+  const { U, auth } = cloud.fb, em = $('#aem').value.trim();
+  if(!em){ alert('Type your email in the box above first.'); return; }
+  U.sendPasswordResetEmail(auth, em).then(() => alert('A password reset email is on its way to ' + em + '.'), e => alert(authMsg(e)));
+}
+function cloudSignOut(){
+  if(!confirm('Sign out on this device? Your matches stay on this device and in the cloud, but changes here won\'t sync until you sign in again.')) return;
+  cloud.fb.U.signOut(cloud.fb.auth);
 }
 
 route();
+cloudInit();
 </script>
 </body>
 </html>
