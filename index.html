@@ -472,7 +472,7 @@ function formView(m, isNew = !m, flash = ''){
   const f = $('#mf');
   f.opp.oninput = () => $('#oppLbl').textContent = f.opp.value || 'Opponent';
   f.venue.onchange = () => { if(f.venue.value === 'H' && !f.ground.value) f.ground.value = 'Elland Road'; if(f.venue.value !== 'H' && f.ground.value === 'Elland Road') f.ground.value = ''; };
-  if(isNew && !f.ground.value) f.ground.value = 'Elland Road';
+  if(isNew && !m.opp && !f.ground.value && f.venue.value === 'H') f.ground.value = 'Elland Road';
   f.onsubmit = e => { e.preventDefault(); submitMatch(); };
   finderInit(f, m, isNew);
   window.submitMatch = () => {
@@ -638,7 +638,8 @@ function histToMatch(h, prev){
     att: h.att || '', ref: h.ref || '', manager: h.manager || '', ls: h.ls, os: h.os, htl: h.htl || '', hto: h.hto || '', ftl: '', fto: '',
     et: !!h.et, pens: !!h.pens, pl: h.pl || '', po: h.po || '', formation: '', oppXI: '',
     goals: (h.goals || []).map(g => ({...g})), subs: (h.subs || []).map(x => ({...x})), cards: (h.cards || []).map(x => ({...x})),
-    lineup: (h.lineup || []).map(keep), bench: (h.bench || []).map(keep) };
+    lineup: (h.lineup || []).map(keep), bench: (h.bench || []).map(keep),
+    notes: h.notes && !String(prev?.notes || '').includes(h.notes) ? [prev?.notes, h.notes].filter(Boolean).join('\n') : (prev?.notes || '') };
 }
 
 function finderHTML(m, isNew, filled){
