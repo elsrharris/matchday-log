@@ -5,7 +5,8 @@ A mobile-first website for logging every Leeds United match one fan (the repo ow
 ## Ground rules
 
 - **One file, no build step.** Everything is in `index.html` (vanilla JS, inline CSS). No npm, no bundler, no frameworks. Libraries only via CDN `import()`.
-- **The user is not technical-facing; the end user is an older fan on an iPhone.** Keep the UI plain-English, big tap targets, forgiving. Test at phone width (Playwright `devices['iPhone 13']`).
+- **The end user is an older fan who mostly uses a desktop computer, and sometimes an iPhone.** Design desktop first, and it must also work well on a phone. Keep the UI plain-English, readable text, big click/tap targets, forgiving. Test at both sizes (Playwright desktop viewport ~1440×900, and `devices['iPhone 13']`).
+- A full visual redesign is planned by the repo owner (an experienced web developer) in Figma. Build from their frames when they share them, rather than inventing a new look.
 - **Colours:** Leeds blue `#1D428A`, yellow `#FFCD00`, white. **No club crest** (the header uses a yellow "LUFC" roundel instead).
 - **Never lose his data.** Anything touching storage or sync needs a test that proves nothing is dropped or resurrected.
 - Pushing to `main` deploys straight to the live site. Use a branch for unfinished work.
