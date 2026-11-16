@@ -324,7 +324,7 @@ function detailView(id){
   const lineup = (m.lineup||[]).filter(p => p.name);
   const bench = (m.bench||[]).filter(p => p.name);
   const li = p => `<li><span class="n">${esc(p.n||'')}</span>${esc(p.name)}${p.cap ? '<span class="cap">C</span>' : ''}</li>`;
-  const info = [['Competition', [m.comp, m.round].filter(Boolean).join(' – ')], ['Ground', m.ground], ['Kick-off', m.ko], ['Attendance', m.att && Number(m.att).toLocaleString('en-GB')], ['Referee', m.ref], ['Weather', m.weather]].filter(x => x[1]);
+  const info = [['Competition', [m.comp, m.round].filter(Boolean).join(' – ')], ['Ground', m.ground], ['Kick-off', m.ko], ['Attendance', m.att && Number(m.att).toLocaleString('en-GB')], ['Referee', m.ref], ['Leeds manager', m.manager], ['Weather', m.weather]].filter(x => x[1]);
 
   app.innerHTML = `
     <div class="hero">
@@ -340,7 +340,7 @@ function detailView(id){
       <dl class="kv" style="margin-bottom:${m.review ? '10px' : '0'}">${m.motm ? `<dt>My man of the match</dt><dd>${esc(m.motm)}</dd>` : ''}${m.with ? `<dt>Went with</dt><dd>${esc(m.with)}</dd>` : ''}${m.seat ? `<dt>Stand / seat</dt><dd>${esc(m.seat)}</dd>` : ''}</dl>
       ${m.review ? `<div class="review">${esc(m.review)}</div>` : ''}</div>` : ''}
     ${m.notes ? `<div class="card"><h3>Other notes</h3><div class="review">${esc(m.notes)}</div></div>` : ''}
-    ${m.espnId ? `<p class="small muted" style="margin:0 4px 10px">Match facts from ESPN.</p>` : ''}
+    ${m.espnId ? `<p class="small muted" style="margin:0 4px 10px">Match facts from ESPN.</p>` : m.histId ? `<p class="small muted" style="margin:0 4px 10px">Match facts from the <a href="https://lufchistory.com${esc(m.histId)}" target="_blank" rel="noopener" style="color:var(--blue)">Leeds United Historical Archive</a>.</p>` : ''}
     <div class="btns"><a class="btn" href="#/edit/${m.id}">✏️ Edit</a><button class="sec" onclick="dupMatch('${m.id}')">Copy as new match</button><button class="danger" onclick="delMatch('${m.id}')">Delete</button></div>`;
 }
 function delMatch(id){
@@ -381,7 +381,7 @@ function collectRows(kind){
     return has ? o : null;
   }).filter(Boolean);
 }
-const SCALARS = ['espnId','espnLg','formation','date','ko','comp','round','opp','venue','ground','att','ref','weather','ls','os','htl','hto','ftl','fto','pl','po','oppXI','rating','motm','review','with','seat','notes'];
+const SCALARS = ['espnId','espnLg','histId','manager','formation','date','ko','comp','round','opp','venue','ground','att','ref','weather','ls','os','htl','hto','ftl','fto','pl','po','oppXI','rating','motm','review','with','seat','notes'];
 
 function formView(m, isNew = !m, flash = ''){
   if(!m){
@@ -396,7 +396,7 @@ function formView(m, isNew = !m, flash = ''){
     <h2>${isNew ? 'Add a match' : 'Edit match'}</h2>
     ${flash ? `<div class="flash">${flash}</div>` : ''}
     ${finderHTML(m, isNew, !!flash)}
-    <input type="hidden" name="espnId" value="${v('espnId')}"><input type="hidden" name="espnLg" value="${v('espnLg')}">
+    <input type="hidden" name="espnId" value="${v('espnId')}"><input type="hidden" name="espnLg" value="${v('espnLg')}"><input type="hidden" name="histId" value="${v('histId')}">
     <div class="card"><h3>The fixture</h3>
       <div class="grid">
         <label class="f">Date<input type="date" name="date" value="${v('date')}" required></label>
@@ -408,6 +408,7 @@ function formView(m, isNew = !m, flash = ''){
         <label class="f">Round / stage<input name="round" value="${v('round')}" placeholder="e.g. 3rd round replay"></label>
         <label class="f">Attendance<input name="att" inputmode="numeric" value="${v('att')}"></label>
         <label class="f">Referee<input name="ref" value="${v('ref')}" autocapitalize="words"></label>
+        <label class="f">Leeds manager<input name="manager" value="${v('manager')}" autocapitalize="words"></label>
         <label class="f full">Weather<input name="weather" value="${v('weather')}" placeholder="optional"></label>
       </div>
     </div>
@@ -471,7 +472,7 @@ function formView(m, isNew = !m, flash = ''){
   const f = $('#mf');
   f.opp.oninput = () => $('#oppLbl').textContent = f.opp.value || 'Opponent';
   f.venue.onchange = () => { if(f.venue.value === 'H' && !f.ground.value) f.ground.value = 'Elland Road'; if(f.venue.value !== 'H' && f.ground.value === 'Elland Road') f.ground.value = ''; };
-  if(isNew && !f.ground.value) f.ground.value = 'Elland Road';
+  if(isNew && !m.opp && !f.ground.value && f.venue.value === 'H') f.ground.value = 'Elland Road';
   f.onsubmit = e => { e.preventDefault(); submitMatch(); };
   finderInit(f, m, isNew);
   window.submitMatch = () => {
@@ -611,10 +612,40 @@ function espnToMatch(ev, sum, prev){
   return out;
 }
 
+/* Older seasons (1979/80–2000/01) come from data files in this repo, built from the
+   Leeds United Historical Archive (lufchistory.com). From 2001/02 the data comes from ESPN. */
+const HIST_FIRST = 1979;
+async function histSeason(y){
+  const k = 'hist:' + y;
+  if(espnCache[k]) return espnCache[k];
+  const r = await fetch(`data/history/${y}.json`);
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return espnCache[k] = await r.json();
+}
+/* one shape for the finder list, whichever source the match came from */
+function fxFromEspn(ev){
+  const { O, ls, os, venue } = espnSides(ev), { comp, round } = espnComp(ev);
+  return { key: 'e' + ev.id, src: 'espn', ev, date: londonParts(ev.date).date, opp: O?.team?.displayName || '', venue, ls, os, comp, round };
+}
+const fxFromHist = h => ({ key: 'h' + h.srcPath, src: 'hist', h, date: h.date, opp: h.opp, venue: h.venue, ls: h.ls, os: h.os, comp: h.comp, round: h.round });
+async function seasonFixtures(y){
+  return y >= ESPN_FIRST ? (await espnSeason(y)).map(fxFromEspn) : (await histSeason(y)).map(fxFromHist);
+}
+function histToMatch(h, prev){
+  const caps = new Set((prev?.lineup || []).filter(p => p.cap).map(p => p.name));
+  const keep = x => ({ ...x, cap: x.cap || caps.has(x.name) });
+  return { espnId:'', espnLg:'', histId: h.srcPath, date: h.date, ko: '', comp: h.comp, round: h.round || '', opp: h.opp, venue: h.venue, ground: h.ground || '',
+    att: h.att || '', ref: h.ref || '', manager: h.manager || '', ls: h.ls, os: h.os, htl: h.htl || '', hto: h.hto || '', ftl: '', fto: '',
+    et: !!h.et, pens: !!h.pens, pl: h.pl || '', po: h.po || '', formation: '', oppXI: '',
+    goals: (h.goals || []).map(g => ({...g})), subs: (h.subs || []).map(x => ({...x})), cards: (h.cards || []).map(x => ({...x})),
+    lineup: (h.lineup || []).map(keep), bench: (h.bench || []).map(keep),
+    notes: h.notes && !String(prev?.notes || '').includes(h.notes) ? [prev?.notes, h.notes].filter(Boolean).join('\n') : (prev?.notes || '') };
+}
+
 function finderHTML(m, isNew, filled){
-  const cs = curSeason(), start = m.date && m.date >= '2001-07-01' ? seasonStart(m.date) : cs;
-  const opts = `<option value="all">All seasons</option>` + Array.from({length: cs - ESPN_FIRST + 1}, (_, i) => cs - i).map(y => `<option value="${y}" ${y === start ? 'selected' : ''}>${seasonLbl(y)}</option>`).join('');
-  const body = `<p class="small muted" style="margin:0 0 8px">Pick the season and tap the game. The score, scorers, line-ups, subs, cards, referee and attendance fill in for you – then add your own review. Games before 2001 are entered by hand for now.</p>
+  const cs = curSeason(), start = m.date && m.date >= '1979-07-01' ? seasonStart(m.date) : cs;
+  const opts = `<option value="all">All seasons</option>` + Array.from({length: cs - HIST_FIRST + 1}, (_, i) => cs - i).map(y => `<option value="${y}" ${y === start ? 'selected' : ''}>${seasonLbl(y)}</option>`).join('');
+  const body = `<p class="small muted" style="margin:0 0 8px">Pick the season and tap the game – everything known about it fills in for you, then add your own review. From 2001/02 that includes both line-ups, subs and cards; for older games it's usually the score, Leeds scorers, attendance and the Leeds starting XI.</p>
       <div class="grid"><select id="fseason" aria-label="Season">${opts}</select><input id="fsearch" type="search" placeholder="Opponent or date" autocomplete="off"></div>
       <div id="fres" class="fres"></div>`;
   if(isNew && !filled) return `<div class="card finder"><h3>🔎 Find the match</h3>${body}</div>`;
@@ -624,32 +655,32 @@ function finderHTML(m, isNew, filled){
 function finderInit(f, m, isNew){
   const sel = $('#fseason'), q = $('#fsearch'), box = $('#fres');
   if(!sel) return;
-  let evs = [], token = 0;
-  const loggedIds = new Set(db.matches.map(x => x.espnId).filter(Boolean));
-  const loggedKey = new Set(db.matches.map(x => x.date + '|' + String(x.opp || '').toLowerCase()));
+  let fxs = [], token = 0;
+  const lc = s => String(s || '').toLowerCase();
+  const loggedIds = new Set(db.matches.flatMap(x => [x.espnId && 'e' + x.espnId, x.histId && 'h' + x.histId]).filter(Boolean));
+  const loggedKey = new Set(db.matches.map(x => x.date + '|' + lc(x.opp)));
+  const isLogged = fx => loggedIds.has(fx.key) || loggedKey.has(fx.date + '|' + lc(fx.opp));
   const draw = () => {
-    const t = q.value.trim().toLowerCase();
-    const list = evs.filter(ev => !t || ev._s.includes(t));
-    box.innerHTML = list.length ? list.slice(0, 150).map(ev => {
-      const { O, ls, os, venue } = espnSides(ev), { comp, round } = espnComp(ev), r = +ls > +os ? 'W' : +ls < +os ? 'L' : 'D';
-      const done = loggedIds.has(ev.id) || loggedKey.has(londonParts(ev.date).date + '|' + String(O?.team?.displayName || '').toLowerCase());
-      return `<button type="button" class="fx" data-id="${esc(ev.id)}"><span class="badge ${r}">${r}</span><span class="mid"><b>${esc(O?.team?.displayName || '?')} <span class="muted" style="font-weight:400">(${venue === 'N' ? 'N' : venue === 'H' ? 'H' : 'A'})</span></b><small>${fmtDate(londonParts(ev.date).date)} · ${esc([comp, round].filter(Boolean).join(' – '))}</small></span>${done ? '<span class="done">✓ logged</span>' : ''}<span class="sc">${esc(ls)}–${esc(os)}</span></button>`;
-    }).join('') : `<p class="small muted" style="padding:8px 2px">${evs.length ? 'No games match that search.' : 'No games found for that season.'}</p>`;
+    const t = lc(q.value.trim());
+    const list = fxs.filter(fx => !t || fx._s.includes(t));
+    box.innerHTML = list.length ? list.slice(0, 150).map(fx => {
+      const r = fx.ls === '' || fx.os === '' ? '' : +fx.ls > +fx.os ? 'W' : +fx.ls < +fx.os ? 'L' : 'D';
+      return `<button type="button" class="fx" data-k="${esc(fx.key)}"><span class="badge ${r}">${r || '–'}</span><span class="mid"><b>${esc(fx.opp || '?')} <span class="muted" style="font-weight:400">(${fx.venue || '?'})</span></b><small>${fmtDate(fx.date)} · ${esc([fx.comp, fx.round].filter(Boolean).join(' – '))}</small></span>${isLogged(fx) ? '<span class="done">✓ logged</span>' : ''}<span class="sc">${esc(fx.ls)}–${esc(fx.os)}</span></button>`;
+    }).join('') : `<p class="small muted" style="padding:8px 2px">${fxs.length ? 'No games match that search.' : 'No games found for that season.'}</p>`;
   };
   const load = async () => {
     const my = ++token, v = sel.value;
     box.innerHTML = `<p class="small muted" style="padding:8px 2px">Loading ${v === 'all' ? 'every season – this takes a few seconds' : seasonLbl(+v)}…</p>`;
     try {
-      const ys = v === 'all' ? Array.from({length: curSeason() - ESPN_FIRST + 1}, (_, i) => ESPN_FIRST + i) : [+v];
-      const lists = [];
-      let fails = 0;
-      for(let i = 0; i < ys.length; i += 6) lists.push(...await Promise.all(ys.slice(i, i + 6).map(y => espnSeason(y).catch(() => { fails++; return []; }))));
+      const ys = v === 'all' ? Array.from({length: curSeason() - HIST_FIRST + 1}, (_, i) => HIST_FIRST + i) : [+v];
+      const lists = []; let fails = 0;
+      for(let i = 0; i < ys.length; i += 6) lists.push(...await Promise.all(ys.slice(i, i + 6).map(y => seasonFixtures(y).catch(() => { fails++; return []; }))));
       if(fails === ys.length) throw new Error('unreachable');
       if(my !== token) return;
       const seen = new Set();
-      evs = lists.flat().filter(ev => !seen.has(ev.id) && seen.add(ev.id)).sort((a, b) => b.date.localeCompare(a.date));
-      evs.forEach(ev => { const { O } = espnSides(ev), { comp, round } = espnComp(ev), d = londonParts(ev.date).date, [y, mo, dd] = d.split('-');
-        ev._s = [O?.team?.displayName, comp, round, fmtDate(d), `${dd}/${mo}/${y}`, `${+dd}/${+mo}/${y.slice(2)}`, `${dd}/${mo}/${y.slice(2)}`].join(' ').toLowerCase(); });
+      fxs = lists.flat().filter(fx => !seen.has(fx.key) && seen.add(fx.key)).sort((a, b) => b.date.localeCompare(a.date));
+      fxs.forEach(fx => { const [y, mo, dd] = fx.date.split('-');
+        fx._s = lc([fx.opp, fx.comp, fx.round, fmtDate(fx.date), `${dd}/${mo}/${y}`, `${+dd}/${+mo}/${y.slice(2)}`, `${dd}/${mo}/${y.slice(2)}`].join(' ')); });
       draw();
     } catch(e){
       if(my === token) box.innerHTML = `<p class="small muted" style="padding:8px 2px">Couldn't reach the match data (no signal?). You can still fill the match in by hand below.</p>`;
@@ -657,23 +688,28 @@ function finderInit(f, m, isNew){
   };
   sel.onchange = load; q.oninput = draw;
   const det = sel.closest('details');
-  if(det) det.addEventListener('toggle', () => { if(det.open && !evs.length) load(); }, { once: true }); else load();
+  if(det) det.addEventListener('toggle', () => { if(det.open && !fxs.length) load(); }, { once: true }); else load();
   box.onclick = async e => {
     const b = e.target.closest('.fx'); if(!b) return;
-    const ev = evs.find(x => x.id === b.dataset.id); if(!ev) return;
-    const { O } = espnSides(ev), d = londonParts(ev.date).date;
-    const dup = db.matches.find(x => x.id !== m.id && (x.espnId === ev.id || (x.date === d && String(x.opp || '').toLowerCase() === String(O?.team?.displayName || '').toLowerCase())));
-    if(dup && confirm(`You've already logged this match (${fmtDate(d)} v ${dup.opp}).\n\nOK = open it\nCancel = carry on adding it again`)){ go('#/match/' + dup.id); return; }
+    const fx = fxs.find(x => x.key === b.dataset.k); if(!fx) return;
+    const dup = db.matches.find(x => x.id !== m.id && (('e' + x.espnId) === fx.key || ('h' + x.histId) === fx.key || (x.date === fx.date && lc(x.opp) === lc(fx.opp))));
+    if(dup && confirm(`You've already logged this match (${fmtDate(fx.date)} v ${dup.opp}).\n\nOK = open it\nCancel = carry on adding it again`)){ go('#/match/' + dup.id); return; }
     const cur = readForm(f, m);
     const hasData = (cur.goals || []).length || (cur.lineup || []).some(p => p.name) || cur.ls !== '';
     if(!isNew && hasData && !confirm('Replace the fixture, score, goals, line-ups, subs and cards with the online data?\n\nYour review, rating and notes are kept.')) return;
-    b.disabled = true; b.querySelector('.sc').textContent = '…';
-    let sum = null;
-    try { sum = await espnJSON(`${ev.league?.slug || 'all'}/summary?event=${ev.id}`); } catch(err){}
-    const merged = { ...cur, ...espnToMatch(ev, sum, cur), id: m.id, created: m.created };
-    const msg = sum ? `✓ Filled in <b>${esc(scoreTxt(merged))}</b>. Have a quick check, then add your review at the bottom.`
-                    : `✓ Filled in the fixture and score for <b>${esc(scoreTxt(merged))}</b>. Couldn't load the goals and line-ups just now – try again later, or add them by hand.`;
-    formView(merged, isNew, msg);
+    let filled, msg;
+    if(fx.src === 'hist'){
+      filled = histToMatch(fx.h, cur);
+      msg = `✓ Filled in <b>${esc(scoreTxt({...cur, ...filled}))}</b> from the Leeds United Historical Archive. For games this old the opposition scorers, subs and some details aren't recorded – add anything you remember, then your review at the bottom.`;
+    } else {
+      b.disabled = true; b.querySelector('.sc').textContent = '…';
+      let sum = null;
+      try { sum = await espnJSON(`${fx.ev.league?.slug || 'all'}/summary?event=${fx.ev.id}`); } catch(err){}
+      filled = { ...espnToMatch(fx.ev, sum, cur), histId: '' };
+      msg = sum ? `✓ Filled in <b>${esc(scoreTxt({...cur, ...filled}))}</b>. Have a quick check, then add your review at the bottom.`
+                : `✓ Filled in the fixture and score for <b>${esc(scoreTxt({...cur, ...filled}))}</b>. Couldn't load the goals and line-ups just now – try again later, or add them by hand.`;
+    }
+    formView({ ...cur, ...filled, id: m.id, created: m.created }, isNew, msg);
     try { window.scrollTo(0, 0); } catch(err){}
   };
 }
