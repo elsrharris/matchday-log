@@ -39,6 +39,10 @@ A mobile-first website for logging every Leeds United match one fan (the repo ow
   - Doesn't have: opposition scorers, half-time scores, away grounds, kick-off times, referees, shirt numbers, League Cup rounds, shoot-out scores; extra time is often unflagged. 166 matches have some Leeds scorers unknown — those get a note in `notes`.
   - Rebuild: `tools/history/fetch.py` (polite, ~1 request/second, caches pages in `tools/history/raw/`, git-ignored) then `tools/history/parse.py`. Sanity-check season totals against the record books after any change (e.g. 1991-92 First Division: W22 D16 L4, 74–37, 82 pts).
 
+## Demo mode (design work and screenshots)
+
+Add `?demo` before the hash, e.g. `https://elsrharris.github.io/matchday-log/?demo#/match/demo-tottenham-2026`. Loads `data/demo.json` (14 real matches from ESPN and the archive, with fictional reviews) into memory only: nothing is written to localStorage, Firebase isn't loaded, and sign-in buttons do nothing. `?demo=empty` shows empty states, `?demo=signedin` shows sync switched on, and `#/new/<demo id>` shows the Add form already filled in. In demo mode the finder opens on 1991/92 (served from this site, so it always loads). Regenerate `data/demo.json` with the app's own `espnToMatch()` / `histToMatch()` so it stays in step with the importers.
+
 ## Testing
 
 There is no test suite; test with Playwright scripts in the scratchpad (Chromium is pre-installed, `require('playwright')` works).

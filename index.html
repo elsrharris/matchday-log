@@ -158,6 +158,9 @@ table.rank td.p{color:var(--muted);width:24px}
 const KEY = 'lufc-matchday-log-v1';
 /* Storage that falls back to memory if the browser blocks it (e.g. sandboxed previews) */
 let EPHEMERAL = false;
+/* ?demo loads sample matches into memory only (nothing saved, no Firebase) – for design work and screenshots.
+   ?demo=empty shows the empty states, ?demo=signedin shows cloud sync switched on. */
+const DEMO = (new URLSearchParams(location.search).get('demo') ?? null);
 const mem = {};
 function mkStore(name){
   let s = null;
@@ -183,6 +186,7 @@ function trackDeletes(){
   knownIds = now;
 }
 function saveLocal(){
+  if(DEMO !== null) return true;
   try { LS.put(KEY, JSON.stringify(db)); return true; }
   catch(e){ alert('Could not save on this device: ' + e.message + '\nPlease export a backup from the Sync tab.'); return false; }
 }
@@ -249,6 +253,7 @@ function route(keepScroll){
   refreshLists();
   if(!view) listView();
   else if(view === 'match') detailView(id);
+  else if(view === 'new' && id && DEMO !== null){ const src = db.matches.find(m => m.id === id); src ? formView({ ...JSON.parse(JSON.stringify(src)), id: 'demo-new', rating:'', motm:'', review:'', with:'', seat:'' }, true, `✓ Filled in <b>${esc(scoreTxt(src))}</b>. Have a quick check, then add your review at the bottom.`) : formView(null); }
   else if(view === 'new') formView(null);
   else if(view === 'edit') formView(db.matches.find(m => m.id === id));
   else if(view === 'stats') statsView();
@@ -643,7 +648,7 @@ function histToMatch(h, prev){
 }
 
 function finderHTML(m, isNew, filled){
-  const cs = curSeason(), start = m.date && m.date >= '1979-07-01' ? seasonStart(m.date) : cs;
+  const cs = curSeason(), start = m.date && m.date >= '1979-07-01' ? seasonStart(m.date) : DEMO !== null ? 1991 : cs;
   const opts = `<option value="all">All seasons</option>` + Array.from({length: cs - HIST_FIRST + 1}, (_, i) => cs - i).map(y => `<option value="${y}" ${y === start ? 'selected' : ''}>${seasonLbl(y)}</option>`).join('');
   const body = `<p class="small muted" style="margin:0 0 8px">Pick the season and tap the game – everything known about it fills in for you, then add your own review. From 2001/02 that includes both line-ups, subs and cards; for older games it's usually the score, Leeds scorers, attendance and the Leeds starting XI.</p>
       <div class="grid"><select id="fseason" aria-label="Season">${opts}</select><input id="fsearch" type="search" placeholder="Opponent or date" autocomplete="off"></div>
@@ -969,28 +974,42 @@ const authMsg = e => ({
 const quietAuth = e => ['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/user-cancelled'].includes(e.code);
 
 function cloudGoogle(){
+  if(DEMO !== null){ alert('Demo mode – sign-in is switched off.'); return; }
   if(!cloud.fb) return;
   const { U, auth } = cloud.fb;
   /* called straight from the tap (no await first) so browsers don't block the pop-up */
   U.signInWithPopup(auth, new U.GoogleAuthProvider()).catch(e => { if(!quietAuth(e)) alert(authMsg(e)); });
 }
 function cloudEmail(create){
+  if(DEMO !== null){ alert('Demo mode – sign-in is switched off.'); return; }
   const { U, auth } = cloud.fb, em = $('#aem').value.trim(), pw = $('#apw').value;
   if(!em || !pw){ alert('Please enter an email and password.'); return; }
   (create ? U.createUserWithEmailAndPassword : U.signInWithEmailAndPassword)(auth, em, pw).catch(e => alert(authMsg(e)));
 }
 function cloudReset(){
+  if(DEMO !== null){ alert('Demo mode – sign-in is switched off.'); return; }
   const { U, auth } = cloud.fb, em = $('#aem').value.trim();
   if(!em){ alert('Type your email in the box above first.'); return; }
   U.sendPasswordResetEmail(auth, em).then(() => alert('A password reset email is on its way to ' + em + '.'), e => alert(authMsg(e)));
 }
 function cloudSignOut(){
+  if(DEMO !== null){ alert('Demo mode – sign-in is switched off.'); return; }
   if(!confirm('Sign out on this device? Your matches stay on this device and in the cloud, but changes here won\'t sync until you sign in again.')) return;
   cloud.fb.U.signOut(cloud.fb.auth);
 }
 
-route();
-cloudInit();
+async function startDemo(){
+  app.innerHTML = '<p class="muted" style="text-align:center;padding:40px">Loading demo…</p>';
+  let ms = [];
+  if(DEMO !== 'empty'){ try { ms = await (await fetch('data/demo.json')).json(); } catch(e){} }
+  db = { matches: ms, meta: { lastBackup: new Date().toISOString(), lastSync: new Date().toISOString() }, tomb: {} };
+  knownIds = new Set(ms.map(m => m.id));
+  if(DEMO === 'signedin') Object.assign(cloud, { fb: {}, user: { uid: 'demo', email: 'dad@example.com' }, live: true, pending: false });
+  else Object.assign(cloud, { fb: {}, user: null });
+  cloudStatus(); route();
+}
+if(DEMO !== null) startDemo();
+else { route(); cloudInit(); }
 </script>
 </body>
 </html>
