@@ -24,6 +24,18 @@ header .pill.warn{background:#fff;color:var(--blue)}
 .gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;background:#fff;color:#1f1f1f;border:1px solid #c6cbd6;padding:12px}
 .gbtn b{font:800 1.05rem system-ui;color:#4285F4}
 details.alt summary{cursor:pointer;color:var(--blue);font-size:.85rem;margin-top:12px}
+.fres{max-height:420px;overflow:auto;margin-top:8px;border-top:1px solid var(--line)}
+.fx{display:flex;align-items:center;gap:10px;width:100%;background:none;color:var(--ink);font-weight:400;padding:9px 2px;border-bottom:1px solid #f0f2f7;border-radius:0;text-align:left}
+.fx:active{background:#f3f5f9}
+.fx .mid{flex:1;min-width:0}.fx b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fx small{display:block;color:var(--muted);font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fx .sc{font-weight:800;color:var(--blue);flex:none;font-variant-numeric:tabular-nums}
+.fx .badge{width:28px;height:28px;font-size:.8rem}
+.fx .done{font-size:.68rem;font-weight:700;color:var(--win);flex:none}
+.flash{background:#e7f6ec;border:1px solid #9fd8b4;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:.88rem}
+.finder .grid{gap:0 8px}
+details.fd > summary{cursor:pointer;color:var(--blue);font-weight:700;font-size:.95rem;list-style:none}
+details.fd > summary::before{content:'▸ '}details.fd[open] > summary::before{content:'▾ '}
 .who-box{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 main{max-width:780px;margin:0 auto;padding:14px}
 nav.tabs{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:center;padding:6px 0 calc(6px + env(safe-area-inset-bottom));z-index:20}
@@ -124,6 +136,7 @@ table.rank td.p{color:var(--muted);width:24px}
   .tiles{grid-template-columns:repeat(6,1fr)}
 }
 @media (max-width:380px){.grid{grid-template-columns:1fr}}
+@media (max-width:480px){header small{display:none}}
 </style>
 </head>
 <body>
@@ -203,7 +216,7 @@ const sorted = () => [...db.matches].sort((a,b) => (b.date||'').localeCompare(a.
 function teamName(m, t){ return t === 'O' ? (m.opp || 'Opponent') : 'Leeds'; }
 
 function refreshLists(){
-  const players = new Set(), comps = new Set(['Premier League','Championship','League One','First Division','Second Division','FA Cup','League Cup','Play-off','UEFA Cup','Champions League','European Cup','Cup Winners\' Cup','Full Members\' Cup','Charity Shield','Pre-season friendly']), opps = new Set(), grounds = new Set(['Elland Road']);
+  const players = new Set(), comps = new Set(['Premier League','Championship','League One','First Division','Second Division','FA Cup','League Cup','Play-off','UEFA Cup','Champions League','European Cup','Cup Winners\' Cup','Full Members\' Cup','Charity Shield','Community Shield','Europa League','Friendly','Pre-season friendly']), opps = new Set(), grounds = new Set(['Elland Road']);
   for(const m of db.matches){
     (m.lineup||[]).concat(m.bench||[]).forEach(p => p.name && players.add(p.name));
     (m.subs||[]).forEach(s => { if(s.t !== 'O'){ s.on && players.add(s.on); s.off && players.add(s.off); } });
@@ -321,12 +334,13 @@ function detailView(id){
     </div>
     ${info.length ? `<div class="card"><h3>Match info</h3><dl class="kv">${info.map(([k,v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>` : ''}
     ${evs.length ? `<div class="card"><h3>Timeline <span class="small muted">Leeds left · ${esc(m.opp||'Opp')} right</span></h3>${evs.map(e => `<div class="ev ${e.t === 'O' ? 'r' : 'l'}"><span class="min">${esc(minTxt(e.min))}</span>${e.html}</div>`).join('')}</div>` : ''}
-    ${lineup.length || bench.length ? `<div class="card"><h3>Leeds United line-up</h3><ul class="xi">${lineup.map(li).join('')}</ul>${bench.length ? `<p class="small muted" style="margin:10px 0 4px">Subs</p><ul class="xi">${bench.map(li).join('')}</ul>` : ''}</div>` : ''}
+    ${lineup.length || bench.length ? `<div class="card"><h3>Leeds United line-up${m.formation ? ` <span class="small muted">${esc(m.formation)}</span>` : ''}</h3><ul class="xi">${lineup.map(li).join('')}</ul>${bench.length ? `<p class="small muted" style="margin:10px 0 4px">Subs</p><ul class="xi">${bench.map(li).join('')}</ul>` : ''}</div>` : ''}
     ${m.oppXI ? `<div class="card"><h3>${esc(m.opp || 'Opponent')} line-up</h3><div class="review small">${esc(m.oppXI)}</div></div>` : ''}
     ${m.rating || m.motm || m.review || m.with || m.seat ? `<div class="card"><h3>My review ${m.rating ? `<span class="rating">${esc(m.rating)}/10</span>` : ''}</h3>
       <dl class="kv" style="margin-bottom:${m.review ? '10px' : '0'}">${m.motm ? `<dt>My man of the match</dt><dd>${esc(m.motm)}</dd>` : ''}${m.with ? `<dt>Went with</dt><dd>${esc(m.with)}</dd>` : ''}${m.seat ? `<dt>Stand / seat</dt><dd>${esc(m.seat)}</dd>` : ''}</dl>
       ${m.review ? `<div class="review">${esc(m.review)}</div>` : ''}</div>` : ''}
     ${m.notes ? `<div class="card"><h3>Other notes</h3><div class="review">${esc(m.notes)}</div></div>` : ''}
+    ${m.espnId ? `<p class="small muted" style="margin:0 4px 10px">Match facts from ESPN.</p>` : ''}
     <div class="btns"><a class="btn" href="#/edit/${m.id}">✏️ Edit</a><button class="sec" onclick="dupMatch('${m.id}')">Copy as new match</button><button class="danger" onclick="delMatch('${m.id}')">Delete</button></div>`;
 }
 function delMatch(id){
@@ -343,7 +357,7 @@ function dupMatch(id){
 const ROWDEF = {
   lineup: [['n','#','num'],['name','Player','txt'],['cap','C','chk']],
   bench:  [['n','#','num'],['name','Player','txt']],
-  goals:  [['min','Min','min'],['t','','team'],['p','Scorer','txt'],['type','','sel',['','Pen','OG','Header','Free kick']],['a','Assist (optional)','txt']],
+  goals:  [['min','Min','min'],['t','','team'],['p','Scorer','txt'],['type','','sel',['','Pen','OG','Header','Free kick','Volley']],['a','Assist (optional)','txt']],
   subs:   [['min','Min','min'],['t','','team'],['off','Off','txt'],['on','On','txt']],
   cards:  [['min','Min','min'],['t','','team'],['p','Player','txt'],['c','','sel',['Yellow','2nd yellow','Red']]]
 };
@@ -367,11 +381,10 @@ function collectRows(kind){
     return has ? o : null;
   }).filter(Boolean);
 }
-const SCALARS = ['date','ko','comp','round','opp','venue','ground','att','ref','weather','ls','os','htl','hto','ftl','fto','pl','po','oppXI','rating','motm','review','with','seat','notes'];
+const SCALARS = ['espnId','espnLg','formation','date','ko','comp','round','opp','venue','ground','att','ref','weather','ls','os','htl','hto','ftl','fto','pl','po','oppXI','rating','motm','review','with','seat','notes'];
 
-function formView(m){
-  const isNew = !m;
-  if(isNew){
+function formView(m, isNew = !m, flash = ''){
+  if(!m){
     let tpl = {}; try { tpl = JSON.parse(SS.get('lufc-template')) || {}; } catch(e){}
     SS.del('lufc-template');
     m = { id: uid(), venue:'H', comp: tpl.comp || '', lineup: tpl.lineup || Array.from({length:11}, () => ({})), bench: tpl.bench || [], goals:[], subs:[], cards:[] };
@@ -381,6 +394,9 @@ function formView(m){
   app.innerHTML = `
   <form id="mf" autocomplete="off">
     <h2>${isNew ? 'Add a match' : 'Edit match'}</h2>
+    ${flash ? `<div class="flash">${flash}</div>` : ''}
+    ${finderHTML(m, isNew, !!flash)}
+    <input type="hidden" name="espnId" value="${v('espnId')}"><input type="hidden" name="espnLg" value="${v('espnLg')}">
     <div class="card"><h3>The fixture</h3>
       <div class="grid">
         <label class="f">Date<input type="date" name="date" value="${v('date')}" required></label>
@@ -424,6 +440,7 @@ function formView(m){
 
     <div class="card"><h3>Leeds line-up
       ${prev.length ? `<select onchange="copyLineup(this.value);this.value=''" style="width:auto;font-size:.8rem;padding:5px"><option value="">Copy from…</option>${prev.map(x => `<option value="${x.id}">${esc(fmtDate(x.date))} v ${esc(x.opp||'')}</option>`).join('')}</select>` : ''}</h3>
+      <label class="f" style="max-width:150px">Formation<input name="formation" value="${v('formation')}" placeholder="e.g. 4-4-2"></label>
       <p class="small muted" style="margin:0 0 4px">Starting XI · tick C for captain</p>
       ${rowsBlock('lineup', m.lineup, 'Add player')}
       <p class="small muted" style="margin:14px 0 4px">Substitutes on the bench</p>
@@ -456,17 +473,22 @@ function formView(m){
   f.venue.onchange = () => { if(f.venue.value === 'H' && !f.ground.value) f.ground.value = 'Elland Road'; if(f.venue.value !== 'H' && f.ground.value === 'Elland Road') f.ground.value = ''; };
   if(isNew && !f.ground.value) f.ground.value = 'Elland Road';
   f.onsubmit = e => { e.preventDefault(); submitMatch(); };
+  finderInit(f, m, isNew);
   window.submitMatch = () => {
     if(!f.date.value || !f.opp.value.trim()){ alert('Please add at least the date and the opponent.'); (f.date.value ? f.opp : f.date).focus(); return; }
-    const fd = new FormData(f);
-    const out = { id: m.id, created: m.created || new Date().toISOString(), updated: new Date().toISOString() };
-    SCALARS.forEach(k => out[k] = String(fd.get(k) ?? '').trim());
-    out.et = f.et.checked; out.pens = f.pens.checked;
-    Object.keys(ROWDEF).forEach(k => out[k] = collectRows(k));
+    const out = readForm(f, m);
     const i = db.matches.findIndex(x => x.id === m.id);
     if(i >= 0) db.matches[i] = out; else db.matches.push(out);
     if(save()) go('#/match/' + m.id);
   };
+}
+function readForm(f, m){
+  const fd = new FormData(f);
+  const out = { id: m.id, created: m.created || new Date().toISOString(), updated: new Date().toISOString() };
+  SCALARS.forEach(k => out[k] = String(fd.get(k) ?? '').trim());
+  out.et = f.et.checked; out.pens = f.pens.checked;
+  Object.keys(ROWDEF).forEach(k => out[k] = collectRows(k));
+  return out;
 }
 function calcScore(){
   const g = collectRows('goals'), f = $('#mf');
@@ -480,6 +502,180 @@ function copyLineup(id){
   const src = db.matches.find(x => x.id === id); if(!src) return;
   $('#rows-lineup').innerHTML = (src.lineup||[]).map(r => rowHTML('lineup', r)).join('');
   $('#rows-bench').innerHTML = (src.bench||[]).map(r => rowHTML('bench', r)).join('');
+}
+
+
+/* ---------- match finder (ESPN public data, 2001/02 onwards) ---------- */
+const ESPN = 'https://site.api.espn.com/apis/site/v2/sports/soccer/', LEEDS_ID = '357', ESPN_FIRST = 2001;
+const espnCache = {};
+async function espnJSON(path){
+  if(espnCache[path]) return espnCache[path];
+  const r = await fetch(ESPN + path);
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return espnCache[path] = await r.json();
+}
+const seasonStart = d => { const [y, mo] = d.split('-').map(Number); return mo >= 7 ? y : y - 1; };
+const curSeason = () => seasonStart(new Date().toISOString().slice(0, 10));
+const seasonLbl = y => y + '/' + String(y + 1).slice(-2);
+async function espnSeason(y){
+  const d = await espnJSON(`all/teams/${LEEDS_ID}/schedule?season=${y}`);
+  return (d.events || []).filter(e => e.competitions?.[0]?.status?.type?.completed);
+}
+function londonParts(iso){
+  const p = {}; new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/London', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false})
+    .formatToParts(new Date(iso)).forEach(x => p[x.type] = x.value);
+  return { date: `${p.year}-${p.month}-${p.day}`, ko: `${p.hour === '24' ? '00' : p.hour}:${p.minute}` };
+}
+function tidyRound(r){
+  r = String(r || '').trim(); if(!r) return '';
+  const ord = n => n + (['th','st','nd','rd'][(n % 100 > 10 && n % 100 < 14) ? 0 : Math.min(n % 10, 4) % 4] || 'th');
+  const words = {first:1, second:2, third:3, fourth:4, fifth:5, sixth:6, seventh:7};
+  let x;
+  if((x = r.match(/^round\s*(\d+)$/i))) return ord(+x[1]) + ' round';
+  if((x = r.match(/^(\d+)(?:st|nd|rd|th)\s+round$/i))) return ord(+x[1]) + ' round';
+  if((x = r.match(/^(\w+)\s+round$/i)) && words[x[1].toLowerCase()]) return ord(words[x[1].toLowerCase()]) + ' round';
+  if(/^semi-?finals?$/i.test(r)) return 'Semi-final';
+  if(/^quarter-?finals?$/i.test(r)) return 'Quarter-final';
+  if(/^finals?$/i.test(r)) return 'Final';
+  return r;
+}
+function espnComp(ev){
+  const slug = ev.league?.slug || '', st = ev.seasonType?.name || '';
+  const names = {'eng.1':'Premier League','eng.2':'Championship','eng.3':'League One','eng.fa':'FA Cup','eng.league_cup':'League Cup','eng.charity':'Community Shield','club.friendly':'Friendly','uefa.uefa':'UEFA Cup','uefa.europa':'Europa League','uefa.champions':'Champions League','uefa.europa.conf':'Conference League','eng.trophy':'EFL Trophy'};
+  let comp = names[slug] || String(ev.league?.name || '').replace(/^English\s+/, ''), round = '';
+  if(/^eng\.[1-4]$/.test(slug)){ if(st && !/regular season|league/i.test(st)){ comp = 'Play-off'; round = st.replace(/^promotion\s*/i, ''); } }
+  else if(slug !== 'club.friendly') round = st;
+  return { comp, round: tidyRound(round) };
+}
+function espnSides(ev){
+  const cs = ev.competitions[0].competitors;
+  const L = cs.find(c => c.team?.id === LEEDS_ID) || cs[0], O = cs.find(c => c !== L);
+  const sc = c => { const v = c?.score; return v == null ? '' : String(typeof v === 'object' ? (v.displayValue ?? v.value) : v); };
+  const ground = ev.competitions[0].venue?.fullName || '';
+  // ESPN doesn't always flag neutral grounds (e.g. play-off finals at Wembley)
+  const neutral = ev.competitions[0].neutralSite || /wembley|millennium stadium|principality stadium/i.test(ground) || (L.homeAway === 'home' && ground && !/elland road/i.test(ground));
+  return { L, O, ls: sc(L), os: sc(O), venue: neutral ? 'N' : L.homeAway === 'home' ? 'H' : 'A' };
+}
+/* turn ESPN's schedule entry + match summary into this app's match fields */
+function espnToMatch(ev, sum, prev){
+  const c = ev.competitions[0], { L, O, ls, os, venue } = espnSides(ev), { comp, round } = espnComp(ev), when = londonParts(ev.date);
+  const gi = sum?.gameInfo || {}, st = c.status?.type?.name || '';
+  const out = { espnId: ev.id, espnLg: ev.league?.slug || '', date: when.date, ko: ev.timeValid === false ? '' : when.ko, comp, round,
+    opp: O?.team?.displayName || '', venue, ground: gi.venue?.fullName || c.venue?.fullName || '', att: String(gi.attendance || c.attendance || '') .replace(/^0$/, ''),
+    ref: gi.officials?.[0]?.fullName || '', ls, os, htl:'', hto:'', ftl:'', fto:'', pl:'', po:'', et:false, pens:false,
+    goals:[], subs:[], cards:[], lineup:[], bench:[], oppXI:'', formation:'' };
+  const side = id => id === LEEDS_ID ? 'L' : 'O', min = cl => String(cl?.displayValue || '').replace(/'/g, '').trim();
+  const booked = new Set();
+  for(const k of (sum?.keyEvents || [])){
+    const t = k.type?.text || '', ps = (k.participants || []).map(p => p.athlete?.displayName || '');
+    if(/shootout/i.test(t)) break;
+    if(/extra time/i.test(t)) out.et = true;
+    if(!k.team?.id) continue;
+    if((k.scoringPlay || /^(goal|own goal|penalty - scored)/i.test(t)) && !/miss|saved/i.test(t)){
+      const type = /own/i.test(t) ? 'OG' : /penalty/i.test(t) ? 'Pen' : /header/i.test(t) ? 'Header' : /free.?kick/i.test(t) ? 'Free kick' : /volley/i.test(t) ? 'Volley' : '';
+      out.goals.push({ min: min(k.clock), t: side(k.team.id), p: ps[0] || '', type, a: type === 'OG' || type === 'Pen' ? '' : (ps[1] || '') });
+    } else if(/substitution/i.test(t)){
+      out.subs.push({ min: min(k.clock), t: side(k.team.id), off: ps[1] || '', on: ps[0] || '' });
+    } else if(/card/i.test(t)){
+      const who = ps[0] || '', red = /red/i.test(t);
+      const kind = red ? ((/yellow|second/i.test(t) || booked.has(who)) ? '2nd yellow' : 'Red') : 'Yellow';
+      if(!red) booked.add(who);
+      out.cards.push({ min: min(k.clock), t: side(k.team.id), p: who, c: kind });
+    }
+  }
+  if(/AET/.test(st)) out.et = true;
+  if(/PEN/.test(st) || sum?.shootout?.length){
+    out.pens = true;
+    const so = sum?.shootout || [], n = id => { const s = so.find(x => String(x.id) === id); return s ? String(s.shots.filter(x => x.didScore).length) : ''; };
+    out.pl = n(LEEDS_ID); out.po = n(O?.team?.id);
+  }
+  // half-time (and 90-minute) scores: from ESPN's period scores, else from the goals if the goal list is complete
+  const hc = sum?.header?.competitions?.[0]?.competitors || [], ln = id => hc.find(x => x.team?.id === id)?.linescores?.[0]?.displayValue;
+  const complete = out.goals.filter(g => g.t === 'L').length === +ls && out.goals.filter(g => g.t === 'O').length === +os;
+  if(ln(LEEDS_ID) != null && ln(O?.team?.id) != null){ out.htl = String(ln(LEEDS_ID)); out.hto = String(ln(O.team.id)); }
+  else if(complete){ const h = out.goals.filter(g => minVal(g.min) < 46); out.htl = String(h.filter(g => g.t === 'L').length); out.hto = String(h.filter(g => g.t === 'O').length); }
+  if(out.et && complete){ const n = out.goals.filter(g => minVal(g.min) < 91); out.ftl = String(n.filter(g => g.t === 'L').length); out.fto = String(n.filter(g => g.t === 'O').length); }
+  // line-ups
+  const ros = sum?.rosters || [], RL = ros.find(r => r.team?.id === LEEDS_ID), RO = ros.find(r => r !== RL);
+  const caps = new Set((prev?.lineup || []).filter(p => p.cap).map(p => p.name));
+  const starters = r => { const s = (r?.roster || []).filter(p => p.starter); return s.every(p => +p.formationPlace > 0) ? s.sort((a, b) => a.formationPlace - b.formationPlace) : s; };
+  if(RL){
+    out.formation = RL.formation || '';
+    out.lineup = starters(RL).map(p => ({ n: p.jersey || '', name: p.athlete?.displayName || '', cap: caps.has(p.athlete?.displayName) }));
+    out.bench = RL.roster.filter(p => !p.starter).map(p => ({ n: p.jersey || '', name: p.athlete?.displayName || '' }));
+  }
+  if(RO){
+    const xi = starters(RO).map(p => `${p.jersey ? p.jersey + ' ' : ''}${p.athlete?.displayName || ''}`), sb = RO.roster.filter(p => !p.starter).map(p => p.athlete?.displayName).filter(Boolean);
+    out.oppXI = xi.join('\n') + (RO.formation ? `\n(${RO.formation})` : '') + (sb.length ? `\nSubs: ${sb.join(', ')}` : '');
+  }
+  return out;
+}
+
+function finderHTML(m, isNew, filled){
+  const cs = curSeason(), start = m.date && m.date >= '2001-07-01' ? seasonStart(m.date) : cs;
+  const opts = `<option value="all">All seasons</option>` + Array.from({length: cs - ESPN_FIRST + 1}, (_, i) => cs - i).map(y => `<option value="${y}" ${y === start ? 'selected' : ''}>${seasonLbl(y)}</option>`).join('');
+  const body = `<p class="small muted" style="margin:0 0 8px">Pick the season and tap the game. The score, scorers, line-ups, subs, cards, referee and attendance fill in for you – then add your own review. Games before 2001 are entered by hand for now.</p>
+      <div class="grid"><select id="fseason" aria-label="Season">${opts}</select><input id="fsearch" type="search" placeholder="Opponent or date" autocomplete="off"></div>
+      <div id="fres" class="fres"></div>`;
+  if(isNew && !filled) return `<div class="card finder"><h3>🔎 Find the match</h3>${body}</div>`;
+  return `<div class="card finder"><details class="fd"><summary>${isNew ? 'Pick a different match' : '🔎 Fill in from online match data'}</summary><div style="margin-top:10px">${!isNew ? '<p class="small" style="margin:0 0 6px"><b>Replaces</b> the fixture, score, goals, line-ups, subs and cards. Your review and notes are kept.</p>' : ''}${body}</div></details></div>`;
+}
+
+function finderInit(f, m, isNew){
+  const sel = $('#fseason'), q = $('#fsearch'), box = $('#fres');
+  if(!sel) return;
+  let evs = [], token = 0;
+  const loggedIds = new Set(db.matches.map(x => x.espnId).filter(Boolean));
+  const loggedKey = new Set(db.matches.map(x => x.date + '|' + String(x.opp || '').toLowerCase()));
+  const draw = () => {
+    const t = q.value.trim().toLowerCase();
+    const list = evs.filter(ev => !t || ev._s.includes(t));
+    box.innerHTML = list.length ? list.slice(0, 150).map(ev => {
+      const { O, ls, os, venue } = espnSides(ev), { comp, round } = espnComp(ev), r = +ls > +os ? 'W' : +ls < +os ? 'L' : 'D';
+      const done = loggedIds.has(ev.id) || loggedKey.has(londonParts(ev.date).date + '|' + String(O?.team?.displayName || '').toLowerCase());
+      return `<button type="button" class="fx" data-id="${esc(ev.id)}"><span class="badge ${r}">${r}</span><span class="mid"><b>${esc(O?.team?.displayName || '?')} <span class="muted" style="font-weight:400">(${venue === 'N' ? 'N' : venue === 'H' ? 'H' : 'A'})</span></b><small>${fmtDate(londonParts(ev.date).date)} · ${esc([comp, round].filter(Boolean).join(' – '))}</small></span>${done ? '<span class="done">✓ logged</span>' : ''}<span class="sc">${esc(ls)}–${esc(os)}</span></button>`;
+    }).join('') : `<p class="small muted" style="padding:8px 2px">${evs.length ? 'No games match that search.' : 'No games found for that season.'}</p>`;
+  };
+  const load = async () => {
+    const my = ++token, v = sel.value;
+    box.innerHTML = `<p class="small muted" style="padding:8px 2px">Loading ${v === 'all' ? 'every season – this takes a few seconds' : seasonLbl(+v)}…</p>`;
+    try {
+      const ys = v === 'all' ? Array.from({length: curSeason() - ESPN_FIRST + 1}, (_, i) => ESPN_FIRST + i) : [+v];
+      const lists = [];
+      let fails = 0;
+      for(let i = 0; i < ys.length; i += 6) lists.push(...await Promise.all(ys.slice(i, i + 6).map(y => espnSeason(y).catch(() => { fails++; return []; }))));
+      if(fails === ys.length) throw new Error('unreachable');
+      if(my !== token) return;
+      const seen = new Set();
+      evs = lists.flat().filter(ev => !seen.has(ev.id) && seen.add(ev.id)).sort((a, b) => b.date.localeCompare(a.date));
+      evs.forEach(ev => { const { O } = espnSides(ev), { comp, round } = espnComp(ev), d = londonParts(ev.date).date, [y, mo, dd] = d.split('-');
+        ev._s = [O?.team?.displayName, comp, round, fmtDate(d), `${dd}/${mo}/${y}`, `${+dd}/${+mo}/${y.slice(2)}`, `${dd}/${mo}/${y.slice(2)}`].join(' ').toLowerCase(); });
+      draw();
+    } catch(e){
+      if(my === token) box.innerHTML = `<p class="small muted" style="padding:8px 2px">Couldn't reach the match data (no signal?). You can still fill the match in by hand below.</p>`;
+    }
+  };
+  sel.onchange = load; q.oninput = draw;
+  const det = sel.closest('details');
+  if(det) det.addEventListener('toggle', () => { if(det.open && !evs.length) load(); }, { once: true }); else load();
+  box.onclick = async e => {
+    const b = e.target.closest('.fx'); if(!b) return;
+    const ev = evs.find(x => x.id === b.dataset.id); if(!ev) return;
+    const { O } = espnSides(ev), d = londonParts(ev.date).date;
+    const dup = db.matches.find(x => x.id !== m.id && (x.espnId === ev.id || (x.date === d && String(x.opp || '').toLowerCase() === String(O?.team?.displayName || '').toLowerCase())));
+    if(dup && confirm(`You've already logged this match (${fmtDate(d)} v ${dup.opp}).\n\nOK = open it\nCancel = carry on adding it again`)){ go('#/match/' + dup.id); return; }
+    const cur = readForm(f, m);
+    const hasData = (cur.goals || []).length || (cur.lineup || []).some(p => p.name) || cur.ls !== '';
+    if(!isNew && hasData && !confirm('Replace the fixture, score, goals, line-ups, subs and cards with the online data?\n\nYour review, rating and notes are kept.')) return;
+    b.disabled = true; b.querySelector('.sc').textContent = '…';
+    let sum = null;
+    try { sum = await espnJSON(`${ev.league?.slug || 'all'}/summary?event=${ev.id}`); } catch(err){}
+    const merged = { ...cur, ...espnToMatch(ev, sum, cur), id: m.id, created: m.created };
+    const msg = sum ? `✓ Filled in <b>${esc(scoreTxt(merged))}</b>. Have a quick check, then add your review at the bottom.`
+                    : `✓ Filled in the fixture and score for <b>${esc(scoreTxt(merged))}</b>. Couldn't load the goals and line-ups just now – try again later, or add them by hand.`;
+    formView(merged, isNew, msg);
+    try { window.scrollTo(0, 0); } catch(err){}
+  };
 }
 
 /* ---------- stats ---------- */
