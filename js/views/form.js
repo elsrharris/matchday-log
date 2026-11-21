@@ -2,7 +2,7 @@
 import { db, DEMO, SS, save, $, $$, esc, uid, fmtDate, venueTxt, minVal, scoreTxt, sorted, seasonStart, curSeason, seasonLbl } from '../core.js';
 import { HIST_FIRST, seasonFixtures, histToMatch, espnJSON, espnToMatch } from '../importers.js';
 import { go, app } from '../router.js';
-import { actions, icon } from '../ui.js';
+import { actions, icon, toast } from '../ui.js';
 
 export const ROWDEF = {
   lineup: [['n','#','num'],['name','Player','txt'],['cap','C','chk']],
@@ -64,18 +64,26 @@ export function formView(m, isNew = !m, flash = ''){
   state = { m, isNew };
   const v = k => esc(m[k] ?? '');
   const prev = sorted().filter(x => (x.lineup || []).some(p => p.name)).slice(0, 40);
+  /* sections: a blank Add form opens the first two; once filled from the finder (or when editing)
+     everything is folded to a one-line summary and "My review" is open, since that's what's left to do */
+  const open = k => (isNew && !flash) ? (k === 'fixture' || k === 'score') : k === 'review';
+  const sec = (k, n, title, body) => `<details class="fsec card mat-panel" data-fs="${k}" ${open(k) ? 'open' : ''}>
+      <summary><span class="num">${n}</span><span class="ttl">${title}</span><span class="sum" data-sum="${k}"></span>${icon('chevron', 'chev')}</summary>
+      <div class="fbody">${body}</div></details>`;
   app().innerHTML = `
-  <form id="mf" autocomplete="off">
-    <div class="page-head"><div><h1>${isNew ? 'Add a match' : 'Edit match'}</h1></div></div>
-    ${flash ? `<div class="flash">${flash}</div>` : ''}
+  <form id="mf" autocomplete="off" novalidate>
+    <div class="page-head"><div><h1>${isNew ? 'Add a match' : 'Edit match'}</h1>${isNew ? '' : `<p>${esc(scoreTxt(m))}</p>`}</div></div>
+    ${flash ? `<div class="flash" role="status">${flash}</div>` : ''}
     ${finderHTML(m, isNew, !!flash)}
     <input type="hidden" name="espnId" value="${v('espnId')}"><input type="hidden" name="espnLg" value="${v('espnLg')}"><input type="hidden" name="histId" value="${v('histId')}">
-    <div class="card mat-panel"><h3>The fixture</h3>
+
+    ${sec('fixture', 1, 'Match details', `
       <div class="grid">
         <label class="f">Date<input type="date" name="date" value="${v('date')}" required></label>
         <label class="f">Kick-off<input type="time" name="ko" value="${v('ko')}"></label>
         <label class="f full">Opponent<input name="opp" list="opps" value="${v('opp')}" placeholder="e.g. Manchester United" autocapitalize="words" required></label>
-        <label class="f">Home / away<select name="venue">${['H','A','N'].map(x => `<option value="${x}" ${m.venue === x ? 'selected' : ''}>${venueTxt(x)}</option>`).join('')}</select></label>
+        <div class="f full"><span class="flabel">Home / away</span>
+          <div class="seg3" role="radiogroup" aria-label="Home or away">${['H','A','N'].map(x => `<label><input type="radio" name="venue" value="${x}" ${(["H","A","N"].includes(m.venue) ? m.venue : "H") === x ? 'checked' : ''}><span>${venueTxt(x)}</span></label>`).join('')}</div></div>
         <label class="f">Ground<input name="ground" list="grounds" value="${v('ground')}" placeholder="Elland Road"></label>
         <label class="f">Competition<input name="comp" list="comps" value="${v('comp')}" placeholder="e.g. First Division"></label>
         <label class="f">Round / stage<input name="round" value="${v('round')}" placeholder="e.g. 3rd round replay"></label>
@@ -83,13 +91,12 @@ export function formView(m, isNew = !m, flash = ''){
         <label class="f">Referee<input name="ref" value="${v('ref')}" autocapitalize="words"></label>
         <label class="f">Leeds manager<input name="manager" value="${v('manager')}" autocapitalize="words"></label>
         <label class="f full">Weather<input name="weather" value="${v('weather')}" placeholder="optional"></label>
-      </div>
-    </div>
+      </div>`)}
 
-    <div class="card mat-panel"><h3>Score</h3>
-      <div class="score-in">
-        <label class="f">Leeds<input name="ls" inputmode="numeric" value="${v('ls')}"></label><span class="dash">–</span>
-        <label class="f"><span id="oppLbl">${esc(m.opp || 'Opponent')}</span><input name="os" inputmode="numeric" value="${v('os')}"></label>
+    ${sec('score', 2, 'Score', `
+      <div class="score-in big">
+        <label class="f">Leeds<input name="ls" inputmode="numeric" value="${v('ls')}" aria-label="Leeds goals"></label><span class="dash">–</span>
+        <label class="f"><span id="oppLbl">${esc(m.opp || 'Opponent')}</span><input name="os" inputmode="numeric" value="${v('os')}" aria-label="Opponent goals"></label>
       </div>
       <div class="score-in">
         <label class="f">Half-time Leeds<input name="htl" inputmode="numeric" value="${v('htl')}"></label><span class="dash">–</span>
@@ -104,51 +111,58 @@ export function formView(m, isNew = !m, flash = ''){
       <div id="penbox" ${m.pens ? '' : 'hidden'}>
         <div class="score-in"><label class="f">Leeds pens<input name="pl" inputmode="numeric" value="${v('pl')}"></label><span class="dash">–</span><label class="f">Opp pens<input name="po" inputmode="numeric" value="${v('po')}"></label></div>
       </div>
-      <button type="button" class="btn sec small" data-act="calcScore">Work out score from the goals below</button>
-    </div>
+      <button type="button" class="btn sec small" data-act="calcScore">Work out score from the goals</button>`)}
 
-    <div class="card mat-panel"><h3>Goals</h3>
+    ${sec('goals', 3, 'Goals &amp; assists', `
       <p class="small muted" style="margin:0 0 4px">Minute can include stoppage time, e.g. 45+2 or 90+4. For own goals, pick the team the goal counted for and type the player who put it in.</p>
-      ${rowsBlock('goals', m.goals, 'Add goal')}
-    </div>
+      ${rowsBlock('goals', m.goals, 'Add goal')}`)}
 
-    <div class="card mat-panel"><h3>Leeds line-up
-      ${prev.length ? `<select data-change="copyLineup" style="width:auto;min-height:36px;font-size:.8rem;padding:4px 30px 4px 10px"><option value="">Copy from…</option>${prev.map(x => `<option value="${x.id}">${esc(fmtDate(x.date))} v ${esc(x.opp || '')}</option>`).join('')}</select>` : ''}</h3>
-      <label class="f" style="max-width:160px">Formation<input name="formation" value="${v('formation')}" placeholder="e.g. 4-4-2"></label>
-      <p class="small muted" style="margin:0 0 4px">Starting XI · tick C for captain</p>
+    ${sec('lineup', 4, 'Line-ups', `
+      <div class="lu-head"><label class="f" style="max-width:160px;margin:0">Formation<input name="formation" value="${v('formation')}" placeholder="e.g. 4-4-2"></label>
+        ${prev.length ? `<label class="f" style="margin:0">Copy Leeds line-up from<select data-change="copyLineup"><option value="">Choose a match…</option>${prev.map(x => `<option value="${x.id}">${esc(fmtDate(x.date))} v ${esc(x.opp || '')}</option>`).join('')}</select></label>` : ''}</div>
+      <div class="subhead"><span>Leeds starting XI</span><span>tick C for captain</span></div>
       ${rowsBlock('lineup', m.lineup, 'Add player')}
-      <p class="small muted" style="margin:14px 0 4px">Substitutes on the bench</p>
+      <div class="subhead"><span>Leeds substitutes</span></div>
       ${rowsBlock('bench', m.bench, 'Add sub')}
-    </div>
+      <div class="subhead"><span>Opponent line-up</span><span>optional</span></div>
+      <textarea name="oppXI" style="min-height:80px" placeholder="Type or paste their team, one per line">${v('oppXI')}</textarea>`)}
 
-    <div class="card mat-panel"><h3>Substitutions made</h3>${rowsBlock('subs', m.subs, 'Add substitution')}</div>
-    <div class="card mat-panel"><h3>Cards</h3>${rowsBlock('cards', m.cards, 'Add card')}</div>
+    ${sec('subs', 5, 'Substitutions', rowsBlock('subs', m.subs, 'Add substitution'))}
+    ${sec('cards', 6, 'Cards', rowsBlock('cards', m.cards, 'Add card'))}
 
-    <div class="card mat-panel"><h3>Opponent line-up <span class="small muted" style="text-transform:none;letter-spacing:0">optional</span></h3>
-      <textarea name="oppXI" style="min-height:80px" placeholder="Type or paste their team, one per line">${v('oppXI')}</textarea>
-    </div>
-
-    <div class="card mat-panel"><h3>My review</h3>
+    ${sec('review', 7, 'My review', `
+      <div class="f"><span class="flabel">Match rating</span>
+        <div class="rating-pick" role="radiogroup" aria-label="Match rating out of 10">
+          <label><input type="radio" name="rating" value="" ${!m.rating ? 'checked' : ''}><span aria-label="No rating">–</span></label>
+          ${[1,2,3,4,5,6,7,8,9,10].map(n => `<label><input type="radio" name="rating" value="${n}" ${String(m.rating) === String(n) ? 'checked' : ''}><span>${n}</span></label>`).join('')}</div></div>
       <div class="grid">
-        <label class="f">Match rating<select name="rating"><option value="">–</option>${[10,9,8,7,6,5,4,3,2,1].map(n => `<option ${String(m.rating) === String(n) ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
         <label class="f">My man of the match<input name="motm" list="players" value="${v('motm')}" autocapitalize="words"></label>
         <label class="f">Went with<input name="with" value="${v('with')}" autocapitalize="words"></label>
-        <label class="f">Stand / seat<input name="seat" value="${v('seat')}" placeholder="e.g. Kop, row K"></label>
+        <label class="f full">Stand / seat<input name="seat" value="${v('seat')}" placeholder="e.g. Kop, row K"></label>
       </div>
       <label class="f">Review<textarea name="review" placeholder="How was the game? The atmosphere? The journey?">${v('review')}</textarea></label>
-      <label class="f">Other notes<textarea name="notes" style="min-height:70px" placeholder="Programme, ticket price, pub beforehand…">${v('notes')}</textarea></label>
-    </div>
+      <label class="f">Other notes<textarea name="notes" style="min-height:70px" placeholder="Programme, ticket price, pub beforehand…">${v('notes')}</textarea></label>`)}
 
     <div class="savebar${isNew && !flash ? ' pending' : ''}"><button type="button" class="btn" data-act="saveMatch">Save match</button>${isNew ? '' : `<a class="btn sec" href="#/match/${m.id}" style="flex:none">Cancel</a>`}</div>
     ${datalists()}
   </form>`;
 
   const f = $('#mf');
-  f.opp.oninput = () => $('#oppLbl').textContent = f.opp.value || 'Opponent';
-  f.venue.onchange = () => { if(f.venue.value === 'H' && !f.ground.value) f.ground.value = 'Elland Road'; if(f.venue.value !== 'H' && f.ground.value === 'Elland Road') f.ground.value = ''; };
+  f.opp.oninput = () => { $('#oppLbl').textContent = f.opp.value || 'Opponent'; clearInvalid(f.opp); };
+  f.date.addEventListener('input', () => clearInvalid(f.date));
+  f.addEventListener('change', e => {
+    if(e.target.name !== 'venue') return;
+    if(f.venue.value === 'H' && !f.ground.value) f.ground.value = 'Elland Road';
+    if(f.venue.value !== 'H' && f.ground.value === 'Elland Road') f.ground.value = '';
+  });
+  /* keep each section's one-line summary up to date */
+  const sums = () => updateSums(f);
+  f.addEventListener('input', sums); f.addEventListener('change', sums);
+  f.addEventListener('click', e => { if(e.target.closest('[data-act="addRow"],[data-act="rmRow"],[data-act="calcScore"]')) setTimeout(sums); });
   if(isNew && !m.opp && !f.ground.value && f.venue.value === 'H') f.ground.value = 'Elland Road';
   f.onsubmit = e => { e.preventDefault(); actions.saveMatch(); };
   finderInit(f, m, isNew);
+  updateSums(f);
   /* on a blank Add form, Save only appears once a match is being added: picked in the finder
      (the form re-renders filled in) or as soon as something is typed or chosen in the form itself */
   const bar = f.querySelector('.savebar.pending');
@@ -161,11 +175,17 @@ export function formView(m, isNew = !m, flash = ''){
 
 actions.saveMatch = () => {
   const f = $('#mf'); if(!f || !state) return;
-  if(!f.date.value || !f.opp.value.trim()){ alert('Please add at least the date and the opponent.'); (f.date.value ? f.opp : f.date).focus(); return; }
+  const missing = [!f.date.value && f.date, !f.opp.value.trim() && f.opp].filter(Boolean);
+  if(missing.length){
+    missing.forEach(el => markInvalid(el, el === f.date ? 'Add the date of the match' : 'Add who Leeds played'));
+    const d = missing[0].closest('details'); if(d) d.open = true;
+    missing[0].scrollIntoView({ block: 'center', behavior: 'smooth' }); setTimeout(() => missing[0].focus({ preventScroll: true }), 300);
+    return;
+  }
   const out = readForm(f, state.m);
   const i = db.matches.findIndex(x => x.id === state.m.id);
   if(i >= 0) db.matches[i] = out; else db.matches.push(out);
-  if(save()) go('#/match/' + state.m.id);
+  if(save()){ go('#/match/' + state.m.id); toast(state.isNew ? 'Match saved' : 'Changes saved'); }
 };
 actions.rmRow = el => el.closest('.row').remove();
 actions.addRow = el => { const box = $('#rows-' + el.dataset.kind); box.insertAdjacentHTML('beforeend', rowHTML(el.dataset.kind)); const inp = box.lastElementChild.querySelector('input'); inp && inp.focus(); };
@@ -183,6 +203,30 @@ actions.copyLineup = el => {
   $('#rows-lineup').innerHTML = (src.lineup || []).map(r => rowHTML('lineup', r)).join('');
   $('#rows-bench').innerHTML = (src.bench || []).map(r => rowHTML('bench', r)).join('');
 };
+
+
+/* ---------- section summaries + inline validation ---------- */
+function updateSums(f){
+  const fd = new FormData(f), g = k => String(fd.get(k) ?? '').trim();
+  const n = k => collectRows(k).length, pl = (c, w) => c ? `${c} ${w}${c === 1 ? '' : 's'}` : '';
+  const date = g('date') ? new Date(g('date') + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+  const sum = {
+    fixture: [date, g('opp') && `${g('opp')} (${g('venue') || '?'})`].filter(Boolean).join(' · '),
+    score: g('ls') !== '' && g('os') !== '' ? `${g('ls')}–${g('os')}${g('htl') !== '' && g('hto') !== '' ? ` · HT ${g('htl')}–${g('hto')}` : ''}${f.pens.checked ? ' · pens' : f.et.checked ? ' · aet' : ''}` : '',
+    goals: pl(n('goals'), 'goal'),
+    lineup: [n('lineup') && `${n('lineup')} starting`, n('bench') && `${n('bench')} subs`].filter(Boolean).join(' · '),
+    subs: pl(n('subs'), 'change'),
+    cards: pl(n('cards'), 'card'),
+    review: [g('rating') && `${g('rating')}/10`, g('review') && 'review written'].filter(Boolean).join(' · ')
+  };
+  for(const [k, txt] of Object.entries(sum)){ const el = f.querySelector(`[data-sum="${k}"]`); if(el) el.textContent = txt; }
+}
+function markInvalid(el, msg){
+  el.setAttribute('aria-invalid', 'true');
+  const lab = el.closest('label'); if(!lab || lab.querySelector('.ferr')) return;
+  lab.insertAdjacentHTML('beforeend', `<span class="ferr" role="alert">${esc(msg)}</span>`);
+}
+function clearInvalid(el){ el.removeAttribute('aria-invalid'); const e = el.closest('label')?.querySelector('.ferr'); if(e) e.remove(); }
 
 /* ---------- finder ---------- */
 function finderHTML(m, isNew, filled){

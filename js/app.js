@@ -10,7 +10,7 @@ import { matchesView } from './views/matches.js';
 import { matchView } from './views/match.js';
 import { newView, editView, readForm } from './views/form.js';
 import { statsView } from './views/stats.js';
-import { squadView } from './views/squad.js';
+import { squadView, playerView } from './views/squad.js';
 import { settingsView } from './views/settings.js';
 
 applyTheme();
@@ -46,7 +46,7 @@ document.body.insertAdjacentHTML('beforeend', `
       : `<a href="${h}" data-sec="${k}">${icon(i)}<span>${l}</span></a>`).join('')}
   </div></nav>`);
 
-registerViews({ home: homeView, matches: matchesView, match: matchView, new: newView, edit: editView, stats: statsView, squad: squadView, settings: settingsView });
+registerViews({ home: homeView, matches: matchesView, match: matchView, new: newView, edit: editView, stats: statsView, squad: squadView, player: playerView, settings: settingsView });
 
 async function startDemo(){
   $('#app').innerHTML = '<p class="muted" style="text-align:center;padding:40px">Loading demo…</p>';

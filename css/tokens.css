@@ -18,6 +18,8 @@
   --link:#8FB4FF;
   /* results */
   --win:#30C26B; --draw:#8D9AB0; --loss:#F0524A;
+  /* chart series (validated: dataviz validate_palette.js, dark surface #13223A) */
+  --series-1:#B58A00; --series-2:#4F7FE8;
   /* atmosphere */
   --glow-1:rgba(58,108,214,.34); --glow-2:rgba(25,69,138,.42); --glow-3:rgba(255,205,0,.05);
   /* field controls */
@@ -55,6 +57,7 @@
   --accent:#FFCD00; --accent-ink:#18243A; --accent-text:#19458A;
   --link:#19458A;
   --win:#1F9D55; --draw:#7A879C; --loss:#D64545;
+  --series-1:#A87800; --series-2:#2D5BB0;
   --glow-1:rgba(25,69,138,.10); --glow-2:rgba(25,69,138,.07); --glow-3:rgba(255,205,0,.10);
   --field:rgba(255,255,255,.85); --field-border:rgba(16,45,90,.16); --field-focus:#19458A;
 }

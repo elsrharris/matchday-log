@@ -21,8 +21,8 @@ addEventListener('pagehide', saveScroll);
 export function parse(path){
   const [view = '', id = '', ...rest] = path.split('/').filter(Boolean);
   const v = view === 'data' ? 'settings' : view;
-  const section = v === '' ? 'home' : (v === 'match' || v === 'edit') ? 'matches' : v;
-  return { view: v || 'home', id, rest, section, depth: (v === 'match' || v === 'edit') ? 1 : 0 };
+  const section = v === '' ? 'home' : (v === 'match' || v === 'edit') ? 'matches' : v === 'player' ? 'squad' : v;
+  return { view: v || 'home', id, rest, section, depth: (v === 'match' || v === 'edit' || v === 'player') ? 1 : 0 };
 }
 
 export function go(h, opts = {}){

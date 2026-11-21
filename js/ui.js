@@ -25,6 +25,7 @@ const P = {
   star: '<path d="m12 3.8 2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z"/>',
   filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
   close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7"/>',
 };
 export const icon = (name, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[name] || ''}</svg>`;
 
@@ -42,3 +43,43 @@ document.addEventListener('change', e => {
 /* club crests (ESPN logo CDN). Missing or unknown → initials disc. */
 export const LEEDS_CREST = 'https://a.espncdn.com/i/teamlogos/soccer/500/357.png';
 export const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* animate charts once when they scroll into view (adds .in; CSS does the motion) */
+export function revealOnView(root = document){
+  const els = [...root.querySelectorAll('.reveal:not(.in)')];
+  if(!('IntersectionObserver' in window)){ els.forEach(e => e.classList.add('in')); return; }
+  const io = new IntersectionObserver(entries => entries.forEach(en => { if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } }), { threshold: .15 });
+  els.forEach(e => io.observe(e));
+}
+
+/* chart tooltip: hover with a mouse, tap on touch. Elements carry their text in data-tip. */
+let tipEl = null;
+function tip(){ if(!tipEl){ tipEl = document.createElement('div'); tipEl.className = 'tip mat-raised'; tipEl.setAttribute('role', 'tooltip'); document.body.appendChild(tipEl); } return tipEl; }
+function showTip(el, x, y){
+  const t = tip(); t.textContent = el.dataset.tip; t.classList.add('on');
+  const r = t.getBoundingClientRect(), pad = 10;
+  t.style.left = Math.min(innerWidth - r.width - pad, Math.max(pad, x - r.width / 2)) + 'px';
+  t.style.top = Math.max(pad, y - r.height - 14) + 'px';
+}
+export function hideTip(){ if(tipEl) tipEl.classList.remove('on'); }
+document.addEventListener('pointermove', e => {
+  if(e.pointerType !== 'mouse') return;
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  el ? showTip(el, e.clientX, e.clientY) : hideTip();
+});
+document.addEventListener('pointerdown', e => {
+  if(e.pointerType === 'mouse') return;
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if(el){ const r = el.getBoundingClientRect(); showTip(el, e.clientX || r.left + r.width / 2, r.top); } else hideTip();
+});
+addEventListener('scroll', hideTip, { passive: true });
+addEventListener('hashchange', hideTip);
+
+/* small confirmation toast ("Match saved"); announced to screen readers */
+let toastEl = null, toastT = 0;
+export function toast(msg){
+  if(!toastEl){ toastEl = document.createElement('div'); toastEl.className = 'toast mat-raised'; toastEl.setAttribute('role', 'status'); toastEl.setAttribute('aria-live', 'polite'); document.body.appendChild(toastEl); }
+  toastEl.innerHTML = `${icon('check')}<span></span>`; toastEl.querySelector('span').textContent = msg;
+  toastEl.classList.remove('on'); void toastEl.offsetWidth; toastEl.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 2400);
+}

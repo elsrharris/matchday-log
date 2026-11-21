@@ -6,14 +6,16 @@ import { actions, icon } from '../ui.js';
 import { getPref, setPref } from '../theme.js';
 
 function syncCardHTML(){
-  if(cloud.user) return `<div class="card mat-panel"><h3>Cloud sync is on</h3>
-      <div class="who-box"><div>Signed in as <b>${esc(cloud.user.email || 'you')}</b><div class="muted small" id="syncstate">${esc(syncStateText())}</div></div>
-      <button class="btn sec" data-act="signOut">Sign out</button></div>
-      <p class="small muted" style="margin:12px 0 0">Every match is backed up automatically. Sign in with the same account on your phone, tablet or computer and they'll all show the same matches.</p></div>`;
-  if(cloud.failed) return `<div class="card mat-panel"><h3>Cloud sync</h3><p class="small muted" style="margin:0">Can't reach the sync service right now (no internet?). Your matches are safe on this device. <a href="#/settings" data-act="reload">Try again</a></p></div>`;
-  if(!cloud.fb) return `<div class="card mat-panel"><h3>Cloud sync</h3><p class="small muted" style="margin:0">Loading…</p></div>`;
-  return `<div class="card mat-panel"><h3>Turn on cloud sync</h3>
-      <p style="margin-top:0">Sign in once on each device. Your matches are then backed up automatically and stay the same on your phone and computer. Any matches already on this device are added to your account.</p>
+  if(cloud.user) return `<div class="sgroup mat-panel">
+      <div class="srow"><span class="sico ok">${icon('cloud')}</span><span class="stxt"><b>Cloud sync is on</b><small>${esc(cloud.user.email || 'Signed in')}</small></span></div>
+      <div class="srow"><span class="sico">${icon('check')}</span><span class="stxt"><b>Status</b><small id="syncstate">${esc(syncStateText())}</small></span></div>
+      <button class="srow" data-act="signOut"><span class="sico">${icon('back')}</span><span class="stxt"><b>Sign out on this device</b><small>Your matches stay safe in the cloud</small></span>${icon('chevron', 'chev')}</button>
+    </div>
+    <p class="sfoot">Every match is backed up automatically. Sign in with the same account on your phone and computer and they'll show the same matches.</p>`;
+  if(cloud.failed) return `<div class="sgroup mat-panel"><button class="srow" data-act="reload"><span class="sico warn">${icon('cloud')}</span><span class="stxt"><b>Can't reach the sync service</b><small>No internet? Your matches are safe on this device. Tap to try again.</small></span>${icon('chevron', 'chev')}</button></div>`;
+  if(!cloud.fb) return `<div class="sgroup mat-panel"><div class="srow"><span class="sico">${icon('cloud')}</span><span class="stxt"><b>Cloud sync</b><small>Loading…</small></span></div></div>`;
+  return `<div class="sgroup mat-panel sgroup-pad">
+      <p style="margin:0 0 12px">Sign in once on each device. Your matches are then backed up automatically and stay the same on your phone and computer. Any matches already on this device are added to your account.</p>
       <button class="gbtn" data-act="google"><b>G</b> Sign in with Google</button>
       <details class="alt"><summary>Use an email and password instead</summary>
         <div style="margin-top:10px">
@@ -29,28 +31,32 @@ export function settingsView(){
   const idx = opts.findIndex(o => o[0] === pref);
   app().innerHTML = `
     <div class="page-head"><div><h1>Settings</h1></div></div>
-    <div class="card mat-panel"><h3>Appearance</h3>
+    <h2 class="shead">Appearance</h2>
+    <div class="sgroup mat-panel sgroup-pad">
       <div class="seg" role="group" aria-label="Appearance"><span class="seg-ind" style="width:calc((100% - 16px) / 3);transform:translateX(calc(${idx} * (100% + 4px)))"></span>
         ${opts.map(([k, l]) => `<button type="button" data-act="theme" data-v="${k}" aria-pressed="${k === pref}">${l}</button>`).join('')}</div>
+      <p class="sfoot" style="margin:10px 2px 0">System follows your phone or computer's own light/dark setting.</p>
     </div>
+    <h2 class="shead">Cloud sync</h2>
     ${syncCardHTML()}
-    <div class="card mat-panel"><h3>Backup file</h3>
-      <p class="small muted" style="margin-top:0">${cloud.user ? 'Your matches are already backed up in the cloud. A file is an extra copy you control – handy once a season.' : 'Saves a file with every match. Keep a copy somewhere safe – email it to yourself, or put it in Google Drive / iCloud.'}<br>${db.matches.length} matches on this device · Last backup file: ${last ? new Date(last).toLocaleString('en-GB') : 'never'}</p>
-      <button class="btn" data-act="exportJSON">${icon('download')} Download backup file</button>
+    <h2 class="shead">Backup &amp; data</h2>
+    <div class="sgroup mat-panel">
+      <button class="srow" data-act="exportJSON"><span class="sico">${icon('download')}</span><span class="stxt"><b>Download backup file</b><small>${db.matches.length} matches · last backup ${last ? esc(new Date(last).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })) : 'never'}</small></span>${icon('chevron', 'chev')}</button>
+      <label class="srow"><span class="sico">${icon('copy')}</span><span class="stxt"><b>Restore from a backup file</b><small>Or move matches from another device${cloud.user ? ' (synced to your other devices too)' : ''}</small></span>${icon('chevron', 'chev')}
+        <input type="file" accept=".json,application/json" data-change="importJSON" class="sr-only"></label>
+      <button class="srow" data-act="exportCSV"><span class="sico">${icon('matches')}</span><span class="stxt"><b>Download spreadsheet (CSV)</b><small>For Excel or Google Sheets – viewing only</small></span>${icon('chevron', 'chev')}</button>
     </div>
-    <div class="card mat-panel"><h3>Restore / move to another device</h3>
-      <p class="small muted" style="margin-top:0">Choose a backup file made by this site.${cloud.user ? ' Restored matches are synced to your other devices too.' : ''}</p>
-      <input type="file" accept=".json,application/json" data-change="importJSON" aria-label="Choose a backup file">
-    </div>
-    <div class="card mat-panel"><h3>Spreadsheet</h3>
-      <p class="small muted" style="margin-top:0">A summary of every match to open in Excel or Google Sheets (for viewing – to restore, use the backup file above).</p>
-      <button class="btn sec" data-act="exportCSV">${icon('download')} Download spreadsheet (CSV)</button>
-    </div>
-    <div class="card mat-panel"><h3>About</h3>
+    <p class="sfoot">${cloud.user ? 'Your matches are already backed up in the cloud. A backup file is an extra copy you control – handy once a season.' : 'Matches are saved on this device. Keep a backup file somewhere safe – email it to yourself, or put it in Google Drive or iCloud.'}</p>
+    <h2 class="shead">About</h2>
+    <div class="sgroup mat-panel sgroup-pad">
+      <p class="small" style="margin:0 0 8px"><b>Matchday Log</b> – every Leeds United game I've been to.</p>
       <p class="small muted" style="margin:0">Match facts from 2001/02 onwards come from ESPN; earlier seasons from the <a href="https://lufchistory.com" target="_blank" rel="noopener">Leeds United Historical Archive</a>. Club crests via ESPN.
       Stadium photo: Elland Road (Revie and North stands, 2009) by MightyEagleGER, public domain, via <a href="https://commons.wikimedia.org/wiki/File:LeedsvOldham0910RevieNorthStand.jpg" target="_blank" rel="noopener">Wikimedia Commons</a>.</p>
     </div>
-    <div class="card mat-panel"><h3>Danger zone</h3><button class="btn danger" data-act="wipe">Delete all matches${cloud.user ? ' everywhere' : ' on this device'}</button></div>`;
+    <h2 class="shead">Danger zone</h2>
+    <div class="sgroup mat-panel">
+      <button class="srow danger" data-act="wipe"><span class="sico bad">${icon('trash')}</span><span class="stxt"><b>Delete all matches${cloud.user ? ' everywhere' : ' on this device'}</b><small>This can't be undone – download a backup first</small></span></button>
+    </div>`;
 }
 
 actions.theme = el => {

@@ -45,3 +45,19 @@ export function players(ms){
   }
   return Object.values(P).filter(p => p.apps || p.goals || p.assists);
 }
+
+/* per-season rows (oldest first) for charts */
+export function bySeason(ms){
+  const S = {};
+  for(const m of ms){ const s = seasonOf(m.date); (S[s] = S[s] || []).push(m); }
+  return Object.keys(S).sort().map(s => ({ season: s, ...record(S[s]) }));
+}
+/* home / away / neutral split with per-game rates */
+export function venueSplit(ms){
+  const out = {};
+  for(const v of ['H', 'A', 'N']){
+    const g = ms.filter(m => m.venue === v), r = record(g), rated = g.filter(m => m.rating);
+    out[v] = { ...r, n: g.length, gpg: r.P ? r.F / r.P : 0, cpg: r.P ? r.A / r.P : 0, rating: rated.length ? rated.reduce((a, m) => a + +m.rating, 0) / rated.length : null };
+  }
+  return out;
+}
