@@ -1,6 +1,6 @@
 /* Match Centre: hero scoreboard, match info, and Timeline / Line-ups / My day.
    On phones those three are tabs; on desktop they sit side by side in two columns. */
-import { db, SS, save, esc, fmtDate, minVal, minTxt, num, res, seasonOf, venueTxt } from '../core.js';
+import { db, SS, save, esc, fmtDate, minVal, minTxt, num, res, seasonOf, venueTxt, scoreHTML } from '../core.js';
 import { app, go } from '../router.js';
 import { actions, icon, sheet, toast } from '../ui.js';
 import { crest } from '../crests.js';
@@ -120,7 +120,7 @@ export function matchView(p){
       <a class="iconbtn mat-panel" href="#/edit/${m.id}" aria-label="Edit this match">${icon('edit')}</a></div>
     <section class="mc-hero mat-raised" aria-label="Score">
       <div class="sub">${esc(fmtDate(m.date, true))}</div>
-      ${fixtureRow(n1, n2, `<div class="fx-score">${has(s1) && has(s2) ? `${esc(s1)}–${esc(s2)}` : 'v'}</div><span class="chip ft">${statusChip(m)}</span>`)}
+      ${fixtureRow(n1, n2, `<div class="fx-score">${has(s1) && has(s2) ? scoreHTML(s1, s2) : 'v'}</div><span class="chip ft">${statusChip(m)}</span>`)}
       ${ht ? `<div class="ht">HT ${esc(ht)}</div>` : ''}
       <div class="sub">${esc([m.comp, m.round].filter(Boolean).join(' · '))}${m.comp ? ' · ' : ''}${esc(seasonOf(m.date))}${r ? ` · <span style="color:var(--${r === 'W' ? 'win' : r === 'L' ? 'loss' : 'text-2'});font-weight:700">${{W:'Won', D:'Drawn', L:'Lost'}[r]}</span>` : ''}</div>
     </section>
