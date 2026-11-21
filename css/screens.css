@@ -315,3 +315,18 @@ button.srow:active,label.srow:active{background:rgba(255,255,255,.08)}
 .srow.danger b{color:var(--loss)}
 .sfoot{font-size:var(--fs-sm);color:var(--text-2);margin:8px 6px 0}
 @media (min-width:900px){ #app:has(.sgroup){max-width:760px} }
+
+.opp-head span:first-child{display:inline-flex;align-items:center;gap:8px}
+.opp-head{margin-top:var(--s5)}
+
+/* Add page: "Enter manually" card wrapping the manual sections */
+.manual{border-radius:var(--r-lg);margin-bottom:var(--s3);overflow:hidden}
+.manual > summary{list-style:none;display:flex;align-items:center;gap:var(--s3);padding:var(--s4);cursor:pointer;min-height:68px;-webkit-tap-highlight-color:transparent}
+.manual > summary::-webkit-details-marker{display:none}
+.manual > summary .chev{width:18px;height:18px;color:var(--text-3);transform:rotate(90deg);transition:transform var(--dur) var(--ease-out)}
+.manual[open] > summary .chev{transform:rotate(-90deg)}
+.manual::details-content{block-size:0;overflow:hidden;transition:block-size 380ms var(--ease-out),content-visibility 380ms allow-discrete}
+.manual[open]::details-content{block-size:auto}
+.manual-body{padding:0 var(--s3) var(--s3)}
+.manual-body .fsec{box-shadow:none;background:var(--field);-webkit-backdrop-filter:none;backdrop-filter:none}
+.manual-body .fsec::before{display:none}
