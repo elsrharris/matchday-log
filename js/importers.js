@@ -136,3 +136,22 @@ export function histToMatch(h, prev){
     notes: h.notes && !String(prev?.notes || '').includes(h.notes) ? [prev?.notes, h.notes].filter(Boolean).join('\n') : (prev?.notes || '') };
 }
 
+
+/* Leeds' next fixture (all competitions), cached for 30 minutes in this tab. Returns null if unknown/offline. */
+export async function nextFixture(){
+  const K = 'mdl-next-fixture';
+  try { const c = JSON.parse(sessionStorage.getItem(K) || 'null'); if(c && Date.now() - c.t < 30 * 60e3) return c.f; } catch(e){}
+  try {
+    const d = await espnJSON(`all/teams/${LEEDS_ID}/schedule?fixture=true`);
+    const now = Date.now();
+    const ev = (d.events || []).filter(e => new Date(e.date).getTime() > now - 2 * 3600e3 && !e.competitions?.[0]?.status?.type?.completed)
+      .sort((a, b) => a.date.localeCompare(b.date))[0];
+    let f = null;
+    if(ev){
+      const { O, venue } = espnSides(ev), { comp, round } = espnComp(ev), when = londonParts(ev.date);
+      f = { id: ev.id, date: when.date, ko: ev.timeValid === false ? '' : when.ko, opp: O?.team?.displayName || '', venue, comp, round, ground: ev.competitions[0].venue?.fullName || '' };
+    }
+    try { sessionStorage.setItem(K, JSON.stringify({ t: Date.now(), f })); } catch(e){}
+    return f;
+  } catch(e){ return null; }
+}

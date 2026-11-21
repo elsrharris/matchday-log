@@ -1,48 +1,133 @@
-/* Match page (carried over; becomes the Match Centre in the core-screens phase). */
-import { db, SS, save, esc, fmtDate, minVal, minTxt, penNote, seasonOf, sides } from '../core.js';
+/* Match Centre: hero scoreboard, match info, and Timeline / Line-ups / My day.
+   On phones those three are tabs; on desktop they sit side by side in two columns. */
+import { db, SS, save, esc, fmtDate, minVal, minTxt, num, res, seasonOf, venueTxt } from '../core.js';
 import { app, go } from '../router.js';
 import { actions, icon } from '../ui.js';
+import { crest } from '../crests.js';
+import { fixtureRow } from './home.js';
+
+let tab = 'timeline';
+const has = v => v !== '' && v != null;
+
+function statusChip(m){
+  if(m.pens) return has(m.pl) && has(m.po) ? `Pens ${m.venue === 'A' ? `${m.po}–${m.pl}` : `${m.pl}–${m.po}`}` : 'After penalties';
+  if(m.et) return 'After extra time';
+  return 'Full time';
+}
+
+function timeline(m){
+  const leeds = 'Leeds United', opp = m.opp || 'Opponent';
+  const ev = [
+    ...(m.goals || []).map(g => ({ min: g.min, t: g.t, kind: 'goal', node: icon('ball'),
+      html: `<b>${esc(g.p || (g.type === 'OG' ? 'Own goal' : 'Goal'))}</b>${g.type ? ` <span class="muted small">${g.type === 'OG' ? 'own goal' : esc(g.type.toLowerCase())}</span>` : ''}${g.a ? `<small>Assist: ${esc(g.a)}</small>` : ''}` })),
+    ...(m.cards || []).map(c => ({ min: c.min, t: c.t, kind: 'card', node: `<span class="card-ico ${c.c === 'Yellow' ? 'y' : c.c === '2nd yellow' ? 'yr' : 'r'}"></span>`,
+      html: `<b>${esc(c.p || 'Card')}</b>${c.c !== 'Yellow' ? `<small>${esc(c.c === '2nd yellow' ? 'Second yellow – sent off' : 'Red card')}</small>` : ''}` })),
+    ...(m.subs || []).map(s => ({ min: s.min, t: s.t, kind: 'sub', node: icon('sub', 'sub-ico'),
+      html: `<b>${esc(s.on || '?')}</b><small>on for ${esc(s.off || '?')}</small>` }))
+  ].sort((x, y) => minVal(x.min) - minVal(y.min));
+  if(!ev.length) return '';
+  /* half-time / full-time markers; untimed events (older matches) are listed after full time */
+  const timed = ev.filter(e => minVal(e.min) < 999), untimed = ev.filter(e => minVal(e.min) >= 999);
+  const ht = has(m.htl) && has(m.hto) ? (m.venue === 'A' ? `${m.hto}–${m.htl}` : `${m.htl}–${m.hto}`) : '';
+  const ft = has(m.ls) && has(m.os) ? (m.venue === 'A' ? `${m.os}–${m.ls}` : `${m.ls}–${m.os}`) : '';
+  const f90 = m.et && has(m.ftl) && has(m.fto) ? (m.venue === 'A' ? `${m.fto}–${m.ftl}` : `${m.ftl}–${m.fto}`) : '';
+  const row = e => `<li class="${e.kind} ${e.t === 'O' ? 'opp' : 'lufc'}"><span class="min">${esc(minTxt(e.min))}</span><span class="node">${e.node}</span>
+      <span class="what">${crest(e.t === 'O' ? opp : leeds, 20)}<span>${e.html}</span></span></li>`;
+  const mark = (txt, score) => `<li class="marker"><span class="min"></span><span class="node"></span><span class="tag">${txt}${score ? ` · ${esc(score)}` : ''}</span></li>`;
+  let out = '', htDone = false, etDone = false;
+  for(const e of timed){
+    const v = minVal(e.min);
+    if(!htDone && v >= 46){ out += mark('Half-time', ht); htDone = true; }
+    if(m.et && !etDone && v >= 91){ out += mark('90 minutes', f90); etDone = true; }
+    out += row(e);
+  }
+  if(timed.length && !htDone) out += mark('Half-time', ht);
+  out += mark(m.pens ? 'Full time · penalties' : m.et ? 'Full time · aet' : 'Full time', ft);
+  if(untimed.length) out += mark('Time not recorded') + untimed.map(row).join('');
+  return `<ol class="tl">${out}</ol>`;
+}
+
+function lineups(m){
+  const lineup = (m.lineup || []).filter(p => p.name), bench = (m.bench || []).filter(p => p.name);
+  if(!lineup.length && !bench.length && !m.oppXI) return '';
+  const marks = name => {
+    let s = '';
+    (m.goals || []).filter(g => g.t !== 'O' && g.p === name && g.type !== 'OG').forEach(() => s += icon('ball'));
+    (m.cards || []).filter(c => c.t !== 'O' && c.p === name).forEach(c => s += `<span class="card-ico ${c.c === 'Yellow' ? 'y' : c.c === '2nd yellow' ? 'yr' : 'r'}" style="width:9px;height:12px"></span>`);
+    if((m.subs || []).some(x => x.t !== 'O' && (x.off === name || x.on === name))) s += icon('sub', 'sub-ico');
+    return s ? `<span class="ic">${s}</span>` : '';
+  };
+  const li = p => `<li>${p.n ? `<span class="n">${esc(p.n)}</span>` : ''}<span class="nm">${esc(p.name)}</span>${p.cap ? '<span class="cap">C</span>' : ''}${marks(p.name)}</li>`;
+  return `${lineup.length ? `<div class="subhead"><span>Leeds United</span><span>${esc(m.formation || '')}</span></div><ul class="xi2">${lineup.map(li).join('')}</ul>` : ''}
+    ${bench.length ? `<div class="subhead"><span>Substitutes</span></div><ul class="xi2">${bench.map(li).join('')}</ul>` : ''}
+    ${m.oppXI ? `<div class="subhead"><span>${esc(m.opp || 'Opponent')}</span></div><div class="opp-xi">${esc(m.oppXI)}</div>` : ''}`;
+}
+
+function myDay(m){
+  const any = m.rating || m.motm || m.review || m.with || m.seat || m.notes;
+  if(!any) return `<p class="muted" style="margin:0 0 12px">No review yet. How was the day?</p><a class="btn sec" href="#/edit/${m.id}">${icon('edit')} Add your review</a>`;
+  const kv = [['My man of the match', m.motm], ['Went with', m.with], ['Stand / seat', m.seat]].filter(x => x[1]);
+  return `${m.rating ? `<div class="rate-big"><b>${esc(m.rating)}</b><span>out of 10</span></div>` : ''}
+    ${kv.length ? `<dl class="kv">${kv.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
+    ${m.review ? `<blockquote>${esc(m.review)}</blockquote>` : ''}
+    ${m.notes ? `<div class="subhead"><span>Other notes</span></div><div class="review muted">${esc(m.notes)}</div>` : ''}`;
+}
 
 export function matchView(p){
   const m = db.matches.find(x => x.id === p.id);
   if(!m){ go('#/matches', { replace: true }); return; }
-  const [a, b] = sides(m);
-  const has = a.s !== '' && a.s != null && b.s !== '' && b.s != null;
-  const ht = (m.htl !== '' && m.htl != null && m.hto !== '' && m.hto != null) ? (m.venue === 'A' ? `${m.hto}–${m.htl}` : `${m.htl}–${m.hto}`) : '';
-  const ft90 = m.et && m.ftl !== '' && m.ftl != null && m.fto !== '' && m.fto != null ? (m.venue === 'A' ? `${m.fto}–${m.ftl}` : `${m.ftl}–${m.fto}`) : '';
-  const notes = [ht && 'HT ' + ht, ft90 && '90 mins ' + ft90, m.et && 'After extra time', penNote(m)].filter(Boolean).join(' · ');
+  const home = m.venue !== 'A';
+  const [n1, n2] = home ? ['Leeds United', m.opp || 'Opponent'] : [m.opp || 'Opponent', 'Leeds United'];
+  const [s1, s2] = home ? [m.ls, m.os] : [m.os, m.ls];
+  const ht = has(m.htl) && has(m.hto) ? (home ? `${m.htl}–${m.hto}` : `${m.hto}–${m.htl}`) : '';
+  const r = res(m);
+  const info = [['pin', 'Ground', m.ground], ['clock', 'Kick-off', m.ko], ['people', 'Attendance', m.att && Number(m.att).toLocaleString('en-GB')],
+    ['trophy', 'Competition', [m.comp, m.round].filter(Boolean).join(' · ')], ['whistle', 'Referee', m.ref], ['squad', 'Manager', m.manager], ['cloud', 'Weather', m.weather]].filter(x => x[2]);
+  const tl = timeline(m), lu = lineups(m), panels = [['timeline', 'Timeline', tl], ['lineups', 'Line-ups', lu], ['myday', 'My day', myDay(m)]].filter(x => x[2]);
+  if(!panels.some(x => x[0] === tab)) tab = panels[0][0];
+  const ti = panels.findIndex(x => x[0] === tab);
+  const panel = (k, title, body) => `<section class="card mat-panel mc-panel ${k === 'myday' ? 'myday' : ''}" data-panel="${k}" ${k === tab ? '' : 'hidden'} role="tabpanel" aria-label="${title}"><div class="panel-head"><h3>${title}</h3>${k === 'timeline' ? `<small>${esc(n1 === 'Leeds United' ? 'Leeds' : n1)} v ${esc(n2 === 'Leeds United' ? 'Leeds' : n2)}</small>` : ''}</div>${body}</section>`;
+  const byKey = Object.fromEntries(panels.map(([k, t, b]) => [k, panel(k, t, b)]));
 
-  const evs = [
-    ...(m.goals || []).map(g => ({min:g.min, t:g.t, html:`${icon('ball')} <div class="who"><b>${esc(g.p || 'Goal')}</b>${g.type ? ` <span class="sub">(${g.type === 'OG' ? 'own goal' : esc(g.type.toLowerCase())})</span>` : ''}${g.a ? `<div class="sub">Assist: ${esc(g.a)}</div>` : ''}</div>`})),
-    ...(m.cards || []).map(c => ({min:c.min, t:c.t, html:`${c.c === 'Yellow' ? '🟨' : c.c === '2nd yellow' ? '🟨🟥' : '🟥'} <div class="who">${esc(c.p || 'Card')}</div>`})),
-    ...(m.subs || []).map(s => ({min:s.min, t:s.t, html:`🔁 <div class="who"><b>${esc(s.on || '?')}</b><div class="sub">for ${esc(s.off || '?')}</div></div>`}))
-  ].sort((x, y) => minVal(x.min) - minVal(y.min));
-
-  const lineup = (m.lineup || []).filter(p => p.name);
-  const bench = (m.bench || []).filter(p => p.name);
-  const li = p => `<li><span class="n">${esc(p.n || '')}</span>${esc(p.name)}${p.cap ? '<span class="cap">C</span>' : ''}</li>`;
-  const info = [['Competition', [m.comp, m.round].filter(Boolean).join(' – ')], ['Ground', m.ground], ['Kick-off', m.ko], ['Attendance', m.att && Number(m.att).toLocaleString('en-GB')], ['Referee', m.ref], ['Leeds manager', m.manager], ['Weather', m.weather]].filter(x => x[1]);
-
-  app().innerHTML = `
-    <div class="hero mat-raised">
-      <div class="meta">${fmtDate(m.date, true)} · ${esc(seasonOf(m.date))}</div>
-      <div class="teams"><div class="tm">${esc(a.name)}</div><div class="sc">${has ? esc(a.s) + '–' + esc(b.s) : 'v'}</div><div class="tm">${esc(b.name)}</div></div>
-      ${notes ? `<div class="note">${esc(notes)}</div>` : ''}
+  app().innerHTML = `<div class="stage" aria-hidden="true"></div>
+    <div class="mc-top"><a class="iconbtn mat-panel" href="#/matches" data-act="back" aria-label="Back to matches">${icon('back')}</a>
+      <a class="iconbtn mat-panel" href="#/edit/${m.id}" aria-label="Edit this match">${icon('edit')}</a></div>
+    <section class="mc-hero mat-raised" aria-label="Score">
+      <div class="sub">${esc(fmtDate(m.date, true))}</div>
+      ${fixtureRow(n1, n2, `<div class="fx-score">${has(s1) && has(s2) ? `${esc(s1)}–${esc(s2)}` : 'v'}</div><span class="chip ft">${statusChip(m)}</span>`)}
+      ${ht ? `<div class="ht">HT ${esc(ht)}</div>` : ''}
+      <div class="sub">${esc([m.comp, m.round].filter(Boolean).join(' · '))}${m.comp ? ' · ' : ''}${esc(seasonOf(m.date))}${r ? ` · <span style="color:var(--${r === 'W' ? 'win' : r === 'L' ? 'loss' : 'text-2'});font-weight:700">${{W:'Won', D:'Drawn', L:'Lost'}[r]}</span>` : ''}</div>
+    </section>
+    <div class="mc-grid">
+      <div class="mc-col">
+        ${info.length ? `<section class="card mat-panel" style="margin:0" aria-label="Match information"><div class="info-list">${info.map(([i, k, v]) => `<div>${icon(i)}<span>${k}</span><b>${esc(v)}</b></div>`).join('')}</div></section>` : ''}
+        ${panels.length > 1 ? `<div class="tabs" role="tablist">${panels.map(([k, t]) => `<button role="tab" data-act="mcTab" data-v="${k}" aria-selected="${k === tab}">${t}</button>`).join('')}<span class="tab-ind"></span></div>` : ''}
+        <div class="mc-panels">${byKey.timeline || ''}${byKey.lineups && !byKey.timeline ? byKey.lineups : ''}</div>
+      </div>
+      <div class="mc-col mc-panels">${byKey.myday}${byKey.timeline && byKey.lineups ? byKey.lineups : ''}</div>
     </div>
-    <div class="detail-cols"><div>
-    ${info.length ? `<div class="card mat-panel"><h3>Match info</h3><dl class="kv">${info.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl></div>` : ''}
-    ${evs.length ? `<div class="card mat-panel"><h3>Timeline <span class="small muted" style="text-transform:none;letter-spacing:0">Leeds left · ${esc(m.opp || 'Opp')} right</span></h3>${evs.map(e => `<div class="ev ${e.t === 'O' ? 'r' : 'l'}"><span class="min">${esc(minTxt(e.min))}</span>${e.html}</div>`).join('')}</div>` : ''}
-    </div><div>
-    ${lineup.length || bench.length ? `<div class="card mat-panel"><h3>Leeds United line-up${m.formation ? ` <span class="small muted">${esc(m.formation)}</span>` : ''}</h3><ul class="xi">${lineup.map(li).join('')}</ul>${bench.length ? `<p class="small muted" style="margin:10px 0 4px">Subs</p><ul class="xi">${bench.map(li).join('')}</ul>` : ''}</div>` : ''}
-    ${m.oppXI ? `<div class="card mat-panel"><h3>${esc(m.opp || 'Opponent')} line-up</h3><div class="review small">${esc(m.oppXI)}</div></div>` : ''}
-    ${m.rating || m.motm || m.review || m.with || m.seat ? `<div class="card mat-panel"><h3>My review ${m.rating ? `<span class="rating">${esc(m.rating)}/10</span>` : ''}</h3>
-      <dl class="kv" style="margin-bottom:${m.review ? '12px' : '0'}">${m.motm ? `<dt>My man of the match</dt><dd>${esc(m.motm)}</dd>` : ''}${m.with ? `<dt>Went with</dt><dd>${esc(m.with)}</dd>` : ''}${m.seat ? `<dt>Stand / seat</dt><dd>${esc(m.seat)}</dd>` : ''}</dl>
-      ${m.review ? `<div class="review">${esc(m.review)}</div>` : ''}</div>` : ''}
-    ${m.notes ? `<div class="card mat-panel"><h3>Other notes</h3><div class="review">${esc(m.notes)}</div></div>` : ''}
-    </div></div>
-    ${m.espnId ? `<p class="small muted" style="margin:0 4px 12px">Match facts from ESPN.</p>` : m.histId ? `<p class="small muted" style="margin:0 4px 12px">Match facts from the <a href="https://lufchistory.com${esc(m.histId)}" target="_blank" rel="noopener">Leeds United Historical Archive</a>.</p>` : ''}
-    <div class="btns"><a class="btn" href="#/edit/${m.id}">${icon('edit')} Edit</a><button class="btn sec" data-act="dupMatch" data-id="${m.id}">${icon('copy')} Copy as new match</button><button class="btn danger" data-act="delMatch" data-id="${m.id}">${icon('trash')} Delete</button></div>`;
+    ${m.espnId ? `<p class="credit">Match facts from ESPN.</p>` : m.histId ? `<p class="credit">Match facts from the <a href="https://lufchistory.com${esc(m.histId)}" target="_blank" rel="noopener">Leeds United Historical Archive</a>.</p>` : ''}
+    <div class="actions"><a class="btn" href="#/edit/${m.id}">${icon('edit')} Edit</a><button class="btn sec" data-act="dupMatch" data-id="${m.id}">${icon('copy')} Copy as new match</button><button class="btn danger" data-act="delMatch" data-id="${m.id}">${icon('trash')} Delete</button></div>`;
+  placeTab(ti);
 }
+
+function placeTab(i){
+  const tabs = document.querySelector('.tabs'); if(!tabs) return;
+  const b = tabs.querySelectorAll('button')[i], ind = tabs.querySelector('.tab-ind');
+  if(!b || !ind) return;
+  const w = Math.min(b.offsetWidth * .5, 72);
+  ind.style.width = w + 'px';
+  ind.style.transform = `translateX(${b.offsetLeft + (b.offsetWidth - w) / 2}px)`;
+}
+actions.mcTab = el => {
+  tab = el.dataset.v;
+  const btns = [...el.parentNode.querySelectorAll('button')];
+  btns.forEach(b => b.setAttribute('aria-selected', b === el));
+  document.querySelectorAll('.mc-panel').forEach(p => { const on = p.dataset.panel === tab; p.hidden = !on; if(on){ p.classList.remove('enter'); void p.offsetWidth; p.classList.add('enter'); } });
+  placeTab(btns.indexOf(el));
+};
+/* back button: use history when we came from inside the app, so the list keeps its scroll position */
+actions.back = () => { if(history.length > 1 && history.state) history.back(); else go('#/matches'); };
 actions.delMatch = el => {
   if(!confirm('Delete this match for good?')) return;
   db.matches = db.matches.filter(m => m.id !== el.dataset.id); save(); go('#/matches');
@@ -52,3 +137,4 @@ actions.dupMatch = el => {
   SS.put('lufc-template', JSON.stringify({ comp:m.comp, lineup:m.lineup, bench:m.bench }));
   go('#/new');
 };
+addEventListener('resize', () => { const t = document.querySelector('.tabs [aria-selected="true"]'); if(t) placeTab([...t.parentNode.querySelectorAll('button')].indexOf(t)); });

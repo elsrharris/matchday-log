@@ -16,6 +16,15 @@ const P = {
   copy: '<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 8.5V6a2.5 2.5 0 0 0-2.5-2.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/>',
   trash: '<path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 13h10l1-13"/>',
   download: '<path d="M12 4v11M7 10.5l5 5 5-5M4.5 19.5h15"/>',
+  pin: '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  people: '<circle cx="12" cy="8" r="3.3"/><path d="M5.5 20c.7-3.4 3.3-5.3 6.5-5.3s5.8 1.9 6.5 5.3"/>',
+  whistle: '<circle cx="9" cy="14" r="5"/><path d="M13 10.5 20.5 6v4.5L14 13M9 14h.01"/>',
+  trophy: '<path d="M8 4h8v4.5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 12.5V17M8.5 20h7M10 17h4"/>',
+  sub: '<path d="M7 20V7M3.5 10.5 7 7l3.5 3.5M17 4v13M13.5 13.5 17 17l3.5-3.5"/>',
+  star: '<path d="m12 3.8 2.5 5.1 5.6.8-4 4 .9 5.6-5-2.7-5 2.7.9-5.6-4-4 5.6-.8z"/>',
+  filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
 };
 export const icon = (name, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[name] || ''}</svg>`;
 

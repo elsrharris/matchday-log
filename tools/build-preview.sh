@@ -6,7 +6,7 @@
 set -euo pipefail
 SRC="${1:?source checkout}"; DST="${2:?target folder}"
 rm -rf "$DST"; mkdir -p "$DST"
-cp -r "$SRC/css" "$SRC/js" "$DST/"
+cp -r "$SRC/css" "$SRC/js" "$SRC/assets" "$DST/"
 sed 's#<script type="module" src="js/app.js"></script>#<script>window.MDL_PREVIEW = true;</script>\n<script type="module" src="js/app.js"></script>#' "$SRC/index.html" > "$DST/index.html"
 sed -i 's#<title>Matchday Log – Leeds United</title>#<title>Matchday Log – redesign preview</title>\n<meta name="robots" content="noindex">#' "$DST/index.html"
 grep -q 'MDL_PREVIEW = true' "$DST/index.html" || { echo "preview flag missing" >&2; exit 1; }
