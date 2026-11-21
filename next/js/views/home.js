@@ -1,5 +1,5 @@
 /* Home: season overview, latest match, next fixture, recent form. All figures come from his logged matches. */
-import { db, esc, fmtDate, res, sorted, seasonOf, curSeason, seasonLbl, venueTxt } from '../core.js';
+import { db, esc, fmtDate, res, sorted, seasonOf, curSeason, seasonLbl, venueTxt, scoreHTML } from '../core.js';
 import { record } from '../calc.js';
 import { nextFixture } from '../importers.js';
 import { app } from '../router.js';
@@ -51,7 +51,7 @@ export function homeView(){
       </section>
       <a class="fixture mat-raised c-7" href="#/match/${latest.id}" aria-label="Latest match: ${esc(fmtDate(latest.date, true))}">
         <div class="panel-head"><h3>Latest match</h3><small>${esc(fmtDate(latest.date))}</small></div>
-        ${fixtureRow(n1, n2, `<div class="fx-score">${esc(s1)}–${esc(s2)}</div>${lr ? `<span class="chip ${lr}">${RES[lr]}</span>` : ''}`)}
+        ${fixtureRow(n1, n2, `<div class="fx-score">${scoreHTML(s1, s2)}</div>${lr ? `<span class="chip ${lr}">${RES[lr]}</span>` : ''}`)}
         <div class="fx-meta">${esc([latest.comp, latest.round].filter(Boolean).join(' · '))}${latest.ground ? ' · ' + esc(latest.ground) : ''}${extra ? `<br>${esc(extra)}` : ''}</div>
       </a>
       <div class="c-5" id="nextfx"><div class="fixture mat-panel"><div class="panel-head"><h3>Next fixture</h3></div><div class="skeleton" style="height:120px"></div></div></div>

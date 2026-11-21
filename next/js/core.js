@@ -76,3 +76,6 @@ export const sorted = () => [...db.matches].sort((a, b) => (b.date || '').locale
 export const seasonStart = d => { const [y, mo] = d.split('-').map(Number); return mo >= 7 ? y : y - 1; };
 export const curSeason = () => seasonStart(new Date().toISOString().slice(0, 10));
 export const seasonLbl = y => y + '/' + String(y + 1).slice(-2);
+
+/* big scoreboard: number · dash · number as separate pieces so the dash gets proper space either side */
+export const scoreHTML = (a, b) => `<span class="sc-n">${esc(a)}</span><span class="sc-sep" aria-hidden="true">–</span><span class="sc-n">${esc(b)}</span><span class="sr-only">${esc(a)} to ${esc(b)}</span>`;
