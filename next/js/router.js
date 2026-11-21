@@ -87,6 +87,10 @@ export function route(keepScroll, nav = {}){
     setNav(next.section);
     (views[next.view] || views.home)(next);
     if(!keepScroll) try { window.scrollTo(0, nav.y || 0); } catch(e){}
+    /* name the page in the tab title, and move focus to the new page so screen readers announce it */
+    const h = app().querySelector('h1, .mc-hero .fx-row');
+    document.title = (next.view === 'home' ? '' : (h ? h.textContent.replace(/\s+/g, ' ').trim().slice(0, 60) + ' – ' : '')) + 'Matchday Log';
+    if(!keepScroll && shown) try { app().focus({ preventScroll: true }); } catch(e){}
     shown = next;
   };
   const animate = !first && !keepScroll && !reducedMotion() && !(nav.pop && touch.matches);

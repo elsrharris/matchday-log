@@ -83,3 +83,46 @@ export function toast(msg){
   toastEl.classList.remove('on'); void toastEl.offsetWidth; toastEl.classList.add('on');
   clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('on'), 2400);
 }
+
+/* ---------- glass sheet (replaces alert / confirm / prompt) ----------
+   A bottom sheet on phones, a centred dialog on desktop. Built on <dialog>.showModal(), so focus is
+   trapped, the page behind is inert, and Esc / tapping the backdrop cancels. Resolves with the chosen
+   action's value (or null when dismissed); with `input`, resolves with { value, text }.
+     sheet({ title, message, actions: [{ label, value, style: 'primary'|'secondary'|'danger' }], input, icon }) */
+export function sheet({ title = '', message = '', actions = [{ label: 'OK', value: true, style: 'primary' }], input = null, tone = '' } = {}){
+  return new Promise(resolve => {
+    const d = document.createElement('dialog');
+    d.className = 'sheet mat-raised' + (tone ? ' ' + tone : '');
+    const id = 'sh' + Math.random().toString(36).slice(2, 7);
+    d.setAttribute('aria-labelledby', id + 't');
+    if(message) d.setAttribute('aria-describedby', id + 'm');
+    d.innerHTML = `<div class="sheet-grab" aria-hidden="true"></div>
+      ${title ? `<h2 id="${id}t">${escHtml(title)}</h2>` : ''}
+      ${message ? `<div class="sheet-msg" id="${id}m">${String(message).split('\n\n').map(p => `<p>${escHtml(p)}</p>`).join('')}</div>` : ''}
+      ${input ? `<label class="f">${escHtml(input.label || '')}<input class="sheet-in" ${input.type ? `type="${input.type}"` : ''} autocomplete="off" autocapitalize="characters" placeholder="${escHtml(input.placeholder || '')}"></label>` : ''}
+      <div class="sheet-acts">${actions.map((a, i) => `<button type="button" class="btn ${a.style === 'danger' ? 'danger-solid' : a.style === 'secondary' ? 'sec' : ''}" data-i="${i}">${escHtml(a.label)}</button>`).join('')}</div>`;
+    document.body.appendChild(d);
+    let done = false;
+    const finish = value => {
+      if(done) return; done = true;
+      const text = input ? d.querySelector('.sheet-in').value : undefined;
+      d.classList.remove('on');
+      const close = () => { try { d.close(); } catch(e){} d.remove(); resolve(input ? { value, text } : value); };
+      reducedMotion() ? close() : setTimeout(close, 220);
+    };
+    d.addEventListener('click', e => {
+      const b = e.target.closest('button[data-i]');
+      if(b){ const a = actions[+b.dataset.i]; if(a.needs && d.querySelector('.sheet-in').value.trim() !== a.needs){ d.querySelector('.sheet-in').setAttribute('aria-invalid', 'true'); d.querySelector('.sheet-in').focus(); return; } finish(a.value); return; }
+      if(e.target === d) finish(null);              // backdrop
+    });
+    d.addEventListener('cancel', e => { e.preventDefault(); finish(null); });
+    d.showModal();
+    requestAnimationFrame(() => d.classList.add('on'));
+    /* focus: the text box if there is one, otherwise the safe choice (the non-destructive button) */
+    const safe = input ? d.querySelector('.sheet-in') : (d.querySelector('.btn.sec') || d.querySelector('.btn'));
+    safe && safe.focus();
+  });
+}
+const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* simple message with one button */
+export const notice = (title, message) => sheet({ title, message, actions: [{ label: 'OK', value: true, style: 'primary' }] });

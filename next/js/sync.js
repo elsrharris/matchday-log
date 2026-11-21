@@ -4,6 +4,7 @@
    small "tombstone" documents so a deletion on one device isn't undone by another. When the same
    match differs, the copy with the later `updated` time wins. */
 import { db, DEMO, saveLocal, resetKnownIds, hooks, $, $$ } from './core.js';
+import { sheet, notice, toast } from './ui.js';
 
 const FB_VER = '12.19.0';
 const FB_CFG = {
@@ -28,13 +29,16 @@ export async function cloudInit(){
   }
 }
 
-function cloudStart(user){
-  if(cloud.user && cloud.user.uid === user.uid) return;
+async function cloudStart(user){
+  if((cloud.user && cloud.user.uid === user.uid) || cloud.starting) return;
+  cloud.starting = true;
   const { F, fs } = cloud.fb;
-  if(db.meta.uid && db.meta.uid !== user.uid && db.matches.length &&
-     !confirm(`This device has ${db.matches.length} matches from a different account.\n\nOK = add them to ${user.email || 'this account'} as well\nCancel = remove them from this device`)){
-    db.matches = []; db.tomb = {}; resetKnownIds([]);
+  if(db.meta.uid && db.meta.uid !== user.uid && db.matches.length){
+    const keep = await sheet({ title: 'Matches from another account', message: `This device has ${db.matches.length} matches saved under a different account.\n\nAdd them to ${user.email || 'this account'} as well, or remove them from this device?`,
+      actions: [{ label: 'Add them to this account', value: true, style: 'primary' }, { label: 'Remove from this device', value: false, style: 'secondary' }] });
+    if(keep === false){ db.matches = []; db.tomb = {}; resetKnownIds([]); }
   }
+  cloud.starting = false;
   cloud.user = user; cloud.live = false; cloud.error = '';
   db.meta.uid = user.uid; db.meta.email = user.email || ''; saveLocal();
   cloud.col = F.collection(fs, 'users', user.uid, 'matches');
@@ -123,29 +127,32 @@ const authMsg = e => ({
   'auth/network-request-failed': 'No internet connection – try again when you\'re online.'
 })[e.code] || ('Sign-in didn\'t work: ' + (e.code || e.message));
 const quietAuth = e => ['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/user-cancelled'].includes(e.code);
-const demoOff = () => { if(DEMO !== null){ alert('Demo mode – sign-in is switched off.'); return true; } return false; };
+const demoOff = () => { if(DEMO !== null){ toast('Demo mode – sign-in is switched off'); return true; } return false; };
+const authFail = e => notice('Sign-in didn\'t work', authMsg(e));
 
 export function cloudGoogle(){
   if(demoOff() || !cloud.fb) return;
   const { U, auth } = cloud.fb;
   /* called straight from the tap (no await first) so browsers don't block the pop-up */
-  U.signInWithPopup(auth, new U.GoogleAuthProvider()).catch(e => { if(!quietAuth(e)) alert(authMsg(e)); });
+  U.signInWithPopup(auth, new U.GoogleAuthProvider()).catch(e => { if(!quietAuth(e)) authFail(e); });
 }
 export function cloudEmail(create){
   if(demoOff()) return;
   const { U, auth } = cloud.fb, em = $('#aem').value.trim(), pw = $('#apw').value;
-  if(!em || !pw){ alert('Please enter an email and password.'); return; }
-  (create ? U.createUserWithEmailAndPassword : U.signInWithEmailAndPassword)(auth, em, pw).catch(e => alert(authMsg(e)));
+  if(!em || !pw){ notice('Email and password needed', 'Please enter both your email address and a password.'); return; }
+  (create ? U.createUserWithEmailAndPassword : U.signInWithEmailAndPassword)(auth, em, pw).catch(authFail);
 }
 export function cloudReset(){
   if(demoOff()) return;
   const { U, auth } = cloud.fb, em = $('#aem').value.trim();
-  if(!em){ alert('Type your email in the box above first.'); return; }
-  U.sendPasswordResetEmail(auth, em).then(() => alert('A password reset email is on its way to ' + em + '.'), e => alert(authMsg(e)));
+  if(!em){ notice('Email needed', 'Type your email address in the box first, then tap "Forgot password?" again.'); return; }
+  U.sendPasswordResetEmail(auth, em).then(() => toast('Password reset email sent to ' + em), authFail);
 }
-export function cloudSignOut(){
+export async function cloudSignOut(){
   if(demoOff()) return;
-  if(!confirm('Sign out on this device? Your matches stay on this device and in the cloud, but changes here won\'t sync until you sign in again.')) return;
+  const ok = await sheet({ title: 'Sign out on this device?', message: 'Your matches stay on this device and in the cloud, but changes made here won\'t sync until you sign in again.',
+    actions: [{ label: 'Sign out', value: true, style: 'danger' }, { label: 'Stay signed in', value: false, style: 'secondary' }] });
+  if(!ok) return;
   cloud.fb.U.signOut(cloud.fb.auth);
 }
 hooks.afterSave = cloudReconcile;
