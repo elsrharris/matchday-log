@@ -243,7 +243,7 @@ function clearInvalid(el){ el.removeAttribute('aria-invalid'); const e = el.clos
 
 /* ---------- finder ---------- */
 function finderHTML(m, isNew, filled){
-  const cs = curSeason(), start = m.date && m.date >= '1979-07-01' ? seasonStart(m.date) : DEMO !== null ? 1991 : cs;
+  const cs = curSeason(), start = m.date && m.date >= '1979-07-01' ? seasonStart(m.date) : cs;
   const opts = `<option value="all">All seasons</option>` + Array.from({length: cs - HIST_FIRST + 1}, (_, i) => cs - i).map(y => `<option value="${y}" ${y === start ? 'selected' : ''}>${seasonLbl(y)}</option>`).join('');
   const body = `<p class="small muted" style="margin:0 0 8px">Pick the season and tap the game – everything known about it fills in for you, then add your own review. From 2001/02 that includes both line-ups, subs and cards; for older games it's usually the score, Leeds scorers, attendance and the Leeds starting XI.</p>
       <div class="grid"><select id="fseason" aria-label="Season">${opts}</select><input id="fsearch" type="search" placeholder="Opponent or date" autocomplete="off"></div>
