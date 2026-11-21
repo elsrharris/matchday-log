@@ -1,0 +1,55 @@
+/* Design tokens. Dark is the default; [data-theme] is set on <html> before first paint (see index.html). */
+:root{
+  color-scheme: dark;
+  /* brand */
+  --leeds-blue:#19458A; --midnight:#102D5A; --leeds-yellow:#FFCD00;
+  /* surfaces */
+  --bg:#080F1D; --bg-2:#0D192B;
+  --glass:rgba(24,43,70,.70); --glass-2:rgba(39,62,94,.58); --glass-solid:#13223A;
+  --glass-bar:rgba(13,25,45,.62);
+  --glass-border:rgba(255,255,255,.12); --glass-hi:rgba(255,255,255,.14); --sep:rgba(255,255,255,.08);
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0) 42%);
+  --shadow:0 10px 34px rgba(0,0,0,.28); --shadow-lg:0 18px 50px rgba(0,0,0,.38);
+  /* text */
+  --text:#F5F7FC; --text-2:#A9B6CB; --text-3:#7E8DA6;
+  --accent:#FFCD00; --accent-ink:#0B1426; --accent-text:#FFCD00;
+  --link:#8FB4FF;
+  /* results */
+  --win:#30C26B; --draw:#8D9AB0; --loss:#F0524A;
+  /* atmosphere */
+  --glow-1:rgba(58,108,214,.34); --glow-2:rgba(25,69,138,.42); --glow-3:rgba(255,205,0,.05);
+  /* field controls */
+  --field:rgba(8,15,29,.55); --field-border:rgba(255,255,255,.14); --field-focus:rgba(255,205,0,.7);
+  /* type (system UI = SF Pro on Apple devices) */
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI Variable","Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif;
+  --font-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI Variable Display","Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif;
+  --fs-xs:.75rem; --fs-sm:.875rem; --fs-base:1.0625rem; --fs-md:1.1875rem; --fs-lg:1.375rem; --fs-xl:1.75rem; --fs-2xl:2.25rem; --fs-3xl:3rem; --fs-score:3.5rem;
+  /* shape + spacing */
+  --r-sm:10px; --r:16px; --r-lg:22px; --r-xl:28px; --r-pill:999px;
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s8:32px; --s10:40px;
+  --touch:44px;
+  /* motion */
+  --ease-out:cubic-bezier(.22,1,.36,1);
+  --spring:cubic-bezier(.3,1.25,.45,1);
+  --dur-fast:160ms; --dur:280ms; --dur-slow:420ms;
+  --sidebar:252px;
+}
+@supports (transition-timing-function: linear(0, 1)){
+  :root{ --spring:linear(0, .07 2.5%, .26 6%, .52 10.5%, .76 15.5%, .92 21%, 1.01 27%, 1.04 33%, 1.035 40%, 1.015 50%, 1.002 62%, 1); }
+}
+
+:root[data-theme="light"]{
+  color-scheme: light;
+  --bg:#F3F6FA; --bg-2:#E9EEF5;
+  --glass:rgba(255,255,255,.78); --glass-2:rgba(255,255,255,.9); --glass-solid:#FFFFFF;
+  --glass-bar:rgba(255,255,255,.72);
+  --glass-border:rgba(16,45,90,.10); --glass-hi:rgba(255,255,255,.9); --sep:rgba(16,45,90,.08);
+  --sheen:linear-gradient(180deg,rgba(255,255,255,.6),rgba(255,255,255,0) 50%);
+  --shadow:0 8px 28px rgba(16,45,90,.08); --shadow-lg:0 16px 44px rgba(16,45,90,.14);
+  --text:#18243A; --text-2:#5C6B82; --text-3:#78869C;
+  --accent:#FFCD00; --accent-ink:#18243A; --accent-text:#19458A;
+  --link:#19458A;
+  --win:#1F9D55; --draw:#7A879C; --loss:#D64545;
+  --glow-1:rgba(25,69,138,.10); --glow-2:rgba(25,69,138,.07); --glow-3:rgba(255,205,0,.10);
+  --field:rgba(255,255,255,.85); --field-border:rgba(16,45,90,.16); --field-focus:#19458A;
+}
