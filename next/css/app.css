@@ -79,6 +79,18 @@ button,input,select,textarea{font:inherit;color:inherit}
 
 main#app{display:block;max-width:820px;margin:0 auto;padding:var(--s2) var(--s4) calc(118px + env(safe-area-inset-bottom));view-transition-name:page}
 
+/* ============ progressive blur behind the dock (phone) ============ */
+/* Two stacked layers, each masked to a gradient, so content blurs and dims gradually as it slides
+   under the tab bar rather than meeting a hard edge. */
+.edge-blur{position:fixed;left:0;right:0;bottom:0;z-index:35;pointer-events:none;height:calc(150px + env(safe-area-inset-bottom))}
+.edge-blur i{position:absolute;inset:0}
+.edge-blur i:nth-child(1){-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+  -webkit-mask-image:linear-gradient(to top,#000 45%,transparent 100%);mask-image:linear-gradient(to top,#000 45%,transparent 100%)}
+.edge-blur i:nth-child(2){-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  -webkit-mask-image:linear-gradient(to top,#000 25%,transparent 70%);mask-image:linear-gradient(to top,#000 25%,transparent 70%)}
+.edge-blur i:nth-child(3){background:linear-gradient(to top,color-mix(in srgb,var(--bg) 78%,transparent) 0%,color-mix(in srgb,var(--bg) 35%,transparent) 45%,transparent 100%)}
+@media (min-width:900px){ .edge-blur{display:none} }
+
 /* ============ phone tab bar ============ */
 .tabbar{position:fixed;z-index:40;left:50%;bottom:calc(10px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(440px,calc(100% - 24px));
   height:68px;border-radius:34px;padding:0 6px;view-transition-name:tabbar}
@@ -89,6 +101,9 @@ main#app{display:block;max-width:820px;margin:0 auto;padding:var(--s2) var(--s4)
 .tabbar a[aria-current="page"]{color:var(--accent-text)}
 .tabbar a[aria-current="page"] .ico{transform:scale(1.06);stroke-width:2.2}
 .tabbar a:active .ico{transform:scale(.9)}
+.tabbar a,.side-nav a,.side-add,.iconbtn,.brand{-webkit-tap-highlight-color:transparent;outline:none}
+.tabbar a:focus-visible,.side-nav a:focus-visible,.side-add:focus-visible,.iconbtn:focus-visible,.brand:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:28px}
+.tabbar a{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 /* the sliding active highlight */
 .nav-ind{position:absolute;z-index:0;left:0;top:6px;height:56px;border-radius:28px;pointer-events:none;
   background:var(--lens);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 -1px 0 rgba(0,0,0,.18),inset 0 0 0 1px rgba(255,255,255,.08),0 4px 14px rgba(0,0,0,.22);

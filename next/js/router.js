@@ -91,7 +91,9 @@ export function route(keepScroll, nav = {}){
   };
   const animate = !first && !keepScroll && !reducedMotion() && !(nav.pop && touch.matches);
   first = false;
-  if(animate && document.startViewTransition){
+  /* View Transitions snapshot elements, which flattens glass (backdrop blur) and clipping on iOS Safari for a
+     moment; on touch devices use the CSS fallback instead, which animates the live page. */
+  if(animate && document.startViewTransition && !touch.matches){
     /* a quick second tap skips the running transition (its update still runs); that's expected, not an error */
     const t = document.startViewTransition(render);
     [t.ready, t.finished, t.updateCallbackDone].forEach(pr => pr && pr.catch(() => {}));
