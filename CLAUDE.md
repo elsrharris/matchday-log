@@ -67,7 +67,7 @@ Liquid-glass redesign (dark by default; Light/System in Settings). Files:
 
 ## Demo mode (design work and screenshots)
 
-Add `?demo` before the hash, e.g. `https://elsrharris.github.io/matchday-log/?demo#/match/demo-tottenham-2026`. Loads `data/demo.json` (14 real matches from ESPN and the archive, with fictional reviews) into memory only: nothing is written to localStorage, Firebase isn't loaded, and sign-in buttons do nothing. `?demo=empty` shows empty states, `?demo=signedin` shows sync switched on, and `#/new/<demo id>` shows the Add form already filled in. In demo mode the finder opens on 1991/92 (served from this site, so it always loads). Regenerate `data/demo.json` with the app's own `espnToMatch()` / `histToMatch()` so it stays in step with the importers.
+Add `?demo` before the hash, e.g. `https://elsrharris.github.io/matchday-log/?demo#/match/demo-tottenham-2026`. Loads `data/demo.json` (14 real matches from ESPN and the archive, with fictional reviews) into memory only: nothing is written to localStorage, Firebase isn't loaded, and sign-in buttons do nothing. `?demo=empty` shows empty states, `?demo=signedin` shows sync switched on, and `#/new/<demo id>` shows the Add form already filled in. Regenerate `data/demo.json` with the app's own `espnToMatch()` / `histToMatch()` so it stays in step with the importers.
 
 ## Testing
 
