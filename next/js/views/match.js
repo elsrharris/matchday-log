@@ -50,17 +50,24 @@ function timeline(m){
 function lineups(m){
   const lineup = (m.lineup || []).filter(p => p.name), bench = (m.bench || []).filter(p => p.name);
   if(!lineup.length && !bench.length && !m.oppXI) return '';
-  const marks = name => {
+  /* goal / card / sub icons next to a player; side 'L' = Leeds, 'O' = opponent. A goal counts for the scorer's
+     own side, so an own goal (recorded under the team it counted for) isn't shown against the scorer. */
+  const mine = (x, side) => side === 'O' ? x.t === 'O' : x.t !== 'O';
+  const marks = (name, side) => {
     let s = '';
-    (m.goals || []).filter(g => g.t !== 'O' && g.p === name && g.type !== 'OG').forEach(() => s += icon('ball'));
-    (m.cards || []).filter(c => c.t !== 'O' && c.p === name).forEach(c => s += `<span class="card-ico ${c.c === 'Yellow' ? 'y' : c.c === '2nd yellow' ? 'yr' : 'r'}" style="width:9px;height:12px"></span>`);
-    if((m.subs || []).some(x => x.t !== 'O' && (x.off === name || x.on === name))) s += icon('sub', 'sub-ico');
+    (m.goals || []).filter(g => mine(g, side) && g.p === name && g.type !== 'OG').forEach(() => s += icon('ball'));
+    (m.cards || []).filter(c => mine(c, side) && c.p === name).forEach(c => s += `<span class="card-ico ${c.c === 'Yellow' ? 'y' : c.c === '2nd yellow' ? 'yr' : 'r'}" style="width:9px;height:12px"></span>`);
+    if((m.subs || []).some(x => mine(x, side) && (x.off === name || x.on === name))) s += icon('sub', 'sub-ico');
     return s ? `<span class="ic">${s}</span>` : '';
   };
-  const li = p => `<li>${p.n ? `<span class="n">${esc(p.n)}</span>` : ''}<span class="nm">${esc(p.name)}</span>${p.cap ? '<span class="cap">C</span>' : ''}${marks(p.name)}</li>`;
+  const li = (p, side = 'L') => `<li>${p.n ? `<span class="n">${esc(p.n)}</span>` : ''}<span class="nm">${esc(p.name)}</span>${p.cap ? '<span class="cap">C</span>' : ''}${marks(p.name, side)}</li>`;
+  const opp = parseOppXI(m.oppXI);
   return `${lineup.length ? `<div class="subhead"><span>Leeds United</span><span>${esc(m.formation || '')}</span></div><ul class="xi2">${lineup.map(li).join('')}</ul>` : ''}
     ${bench.length ? `<div class="subhead"><span>Substitutes</span></div><ul class="xi2">${bench.map(li).join('')}</ul>` : ''}
-    ${m.oppXI ? `<div class="subhead"><span>${esc(m.opp || 'Opponent')}</span></div><div class="opp-xi">${esc(m.oppXI)}</div>` : ''}`;
+    ${opp.xi.length || opp.bench.length ? `<div class="subhead opp-head"><span>${crest(m.opp, 20)} ${esc(m.opp || 'Opponent')}</span><span>${esc(opp.formation)}</span></div>
+      ${opp.xi.length ? `<ul class="xi2">${opp.xi.map(p => li(p, 'O')).join('')}</ul>` : ''}
+      ${opp.bench.length ? `<div class="subhead"><span>Substitutes</span></div><ul class="xi2">${opp.bench.map(p => li(p, 'O')).join('')}</ul>` : ''}` : ''}
+    ${opp.extra ? `<div class="opp-xi">${esc(opp.extra)}</div>` : ''}`;
 }
 
 function myDay(m){
@@ -71,6 +78,25 @@ function myDay(m){
     ${kv.length ? `<dl class="kv">${kv.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
     ${m.review ? `<blockquote>${esc(m.review)}</blockquote>` : ''}
     ${m.notes ? `<div class="subhead"><span>Other notes</span></div><div class="review muted">${esc(m.notes)}</div>` : ''}`;
+}
+
+
+/* The opponent line-up is free text: one player per line ("31 Antonin Kinsky" or just a name), an optional
+   "(3-5-2)" formation line and an optional "Subs: A, B, C" line (the format the ESPN import writes).
+   Anything that doesn't fit is shown as plain text underneath. */
+function parseOppXI(text){
+  const out = { xi: [], bench: [], formation: '', extra: '' }, extra = [];
+  for(const raw of String(text || '').split(/\r?\n/)){
+    const line = raw.trim(); if(!line) continue;
+    let x;
+    if((x = line.match(/^\(\s*(\d[\d\s-]*\d)\s*\)$/))) out.formation = x[1].replace(/\s+/g, '');
+    else if((x = line.match(/^subs?\s*:\s*(.*)$/i))) out.bench.push(...x[1].split(',').map(n => n.trim()).filter(Boolean).map(name => ({ n: (name.match(/^(\d+)\s+/) || [])[1] || '', name: name.replace(/^\d+\s+/, '') })));
+    else if((x = line.match(/^(\d{1,2})[.)]?\s+(.+)$/))) out.xi.push({ n: x[1], name: x[2].trim() });
+    else if(line.split(/\s+/).length <= 5 && !/[.!?:;]/.test(line)) out.xi.push({ n: '', name: line });
+    else extra.push(line);
+  }
+  out.extra = extra.join('\n');
+  return out;
 }
 
 export function matchView(p){

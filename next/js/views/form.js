@@ -66,9 +66,18 @@ export function formView(m, isNew = !m, flash = ''){
   const prev = sorted().filter(x => (x.lineup || []).some(p => p.name)).slice(0, 40);
   /* sections: a blank Add form opens the first two; once filled from the finder (or when editing)
      everything is folded to a one-line summary and "My review" is open, since that's what's left to do */
-  const open = k => (isNew && !flash) ? (k === 'fixture' || k === 'score') : k === 'review';
+  /* three modes: 'blank' Add (finder + a closed "Enter manually" card holding sections 1–7),
+     'quick' Add after picking a match in the finder (only My review shows; the imported details are still in the
+     form, hidden, so they save – and can be changed later via Edit), and 'edit' (all sections). */
+  const mode = !isNew ? 'edit' : flash ? 'quick' : 'blank';
+  const open = k => mode === 'blank' ? (k === 'fixture' || k === 'score') : k === 'review';
+  const wrap = {
+    blank: [`<details class="manual mat-panel" id="manual"><summary><span class="sico">${icon('edit')}</span><span class="stxt"><b>Enter manually</b><small>Can't find the match? Fill in the details yourself.</small></span>${icon('chevron', 'chev')}</summary><div class="manual-body">`, '', '</div></details>'],
+    quick: ['<div class="fs-hidden" hidden>', '</div>', ''],
+    edit: ['', '', '']
+  }[mode];
   const sec = (k, n, title, body) => `<details class="fsec card mat-panel" data-fs="${k}" ${open(k) ? 'open' : ''}>
-      <summary><span class="num">${n}</span><span class="ttl">${title}</span><span class="sum" data-sum="${k}"></span>${icon('chevron', 'chev')}</summary>
+      <summary>${mode === 'quick' ? '' : `<span class="num">${n}</span>`}<span class="ttl">${title}</span><span class="sum" data-sum="${k}"></span>${icon('chevron', 'chev')}</summary>
       <div class="fbody">${body}</div></details>`;
   app().innerHTML = `
   <form id="mf" autocomplete="off" novalidate>
@@ -77,6 +86,7 @@ export function formView(m, isNew = !m, flash = ''){
     ${finderHTML(m, isNew, !!flash)}
     <input type="hidden" name="espnId" value="${v('espnId')}"><input type="hidden" name="espnLg" value="${v('espnLg')}"><input type="hidden" name="histId" value="${v('histId')}">
 
+    ${wrap[0]}
     ${sec('fixture', 1, 'Match details', `
       <div class="grid">
         <label class="f">Date<input type="date" name="date" value="${v('date')}" required></label>
@@ -129,6 +139,7 @@ export function formView(m, isNew = !m, flash = ''){
 
     ${sec('subs', 5, 'Substitutions', rowsBlock('subs', m.subs, 'Add substitution'))}
     ${sec('cards', 6, 'Cards', rowsBlock('cards', m.cards, 'Add card'))}
+    ${wrap[1]}
 
     ${sec('review', 7, 'My review', `
       <div class="f"><span class="flabel">Match rating</span>
@@ -142,6 +153,7 @@ export function formView(m, isNew = !m, flash = ''){
       </div>
       <label class="f">Review<textarea name="review" placeholder="How was the game? The atmosphere? The journey?">${v('review')}</textarea></label>
       <label class="f">Other notes<textarea name="notes" style="min-height:70px" placeholder="Programme, ticket price, pub beforehand…">${v('notes')}</textarea></label>`)}
+    ${wrap[2]}
 
     <div class="savebar${isNew && !flash ? ' pending' : ''}"><button type="button" class="btn" data-act="saveMatch">Save match</button>${isNew ? '' : `<a class="btn sec" href="#/match/${m.id}" style="flex:none">Cancel</a>`}</div>
     ${datalists()}
@@ -178,7 +190,8 @@ actions.saveMatch = () => {
   const missing = [!f.date.value && f.date, !f.opp.value.trim() && f.opp].filter(Boolean);
   if(missing.length){
     missing.forEach(el => markInvalid(el, el === f.date ? 'Add the date of the match' : 'Add who Leeds played'));
-    const d = missing[0].closest('details'); if(d) d.open = true;
+    const hid = missing[0].closest('.fs-hidden'); if(hid) hid.hidden = false;
+    for(let d = missing[0].closest('details'); d; d = d.parentElement.closest('details')) d.open = true;
     missing[0].scrollIntoView({ block: 'center', behavior: 'smooth' }); setTimeout(() => missing[0].focus({ preventScroll: true }), 300);
     return;
   }
@@ -287,14 +300,14 @@ function finderInit(f, m, isNew){
     let filled, msg;
     if(fx.src === 'hist'){
       filled = histToMatch(fx.h, cur);
-      msg = `✓ Filled in <b>${esc(scoreTxt({...cur, ...filled}))}</b> from the Leeds United Historical Archive. For games this old the opposition scorers, subs and some details aren't recorded – add anything you remember, then your review at the bottom.`;
+      msg = `✓ Filled in <b>${esc(scoreTxt({...cur, ...filled}))}</b> from the Leeds United Historical Archive. Now add your review below. For games this old some details aren't recorded – you can add anything you remember later with Edit.`;
     } else {
       b.disabled = true; b.querySelector('.sc').textContent = '…';
       let sum = null;
       try { sum = await espnJSON(`${fx.ev.league?.slug || 'all'}/summary?event=${fx.ev.id}`); } catch(err){}
       filled = { ...espnToMatch(fx.ev, sum, cur), histId: '' };
-      msg = sum ? `✓ Filled in <b>${esc(scoreTxt({...cur, ...filled}))}</b>. Have a quick check, then add your review at the bottom.`
-                : `✓ Filled in the fixture and score for <b>${esc(scoreTxt({...cur, ...filled}))}</b>. Couldn't load the goals and line-ups just now – try again later, or add them by hand.`;
+      msg = sum ? `✓ Filled in <b>${esc(scoreTxt({...cur, ...filled}))}</b>. Now add your review below – you can change any of the match details later with Edit.`
+                : `✓ Filled in the fixture and score for <b>${esc(scoreTxt({...cur, ...filled}))}</b>. Couldn't load the goals and line-ups just now – add your review below, and fill those in later with Edit if you like.`;
     }
     formView({ ...cur, ...filled, id: m.id, created: m.created }, isNew, msg);
     try { window.scrollTo(0, 0); } catch(err){}
@@ -305,7 +318,7 @@ function finderInit(f, m, isNew){
 export function newView(p){
   if(p.id && DEMO !== null){
     const src = db.matches.find(m => m.id === p.id);
-    if(src) return formView({ ...JSON.parse(JSON.stringify(src)), id: 'demo-new', rating:'', motm:'', review:'', with:'', seat:'' }, true, `✓ Filled in <b>${esc(scoreTxt(src))}</b>. Have a quick check, then add your review at the bottom.`);
+    if(src) return formView({ ...JSON.parse(JSON.stringify(src)), id: 'demo-new', rating:'', motm:'', review:'', with:'', seat:'' }, true, `✓ Filled in <b>${esc(scoreTxt(src))}</b>. Now add your review below – you can change any of the match details later with Edit.`);
   }
   formView(null);
 }
