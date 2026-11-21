@@ -11,6 +11,12 @@ export function registerViews(v){ views = v; }
 
 export let curPath = location.hash.slice(1) || '/';
 let shown = null, first = true;
+/* Back/forward returns to where you were on that page. We manage scroll ourselves so it can be
+   restored after the view re-renders (the browser can't, because the page is rebuilt). */
+try { history.scrollRestoration = 'manual'; } catch(e){}
+const touch = matchMedia('(pointer: coarse)');
+const saveScroll = () => { try { history.replaceState({ ...(history.state || {}), y: scrollY }, ''); } catch(e){} };
+addEventListener('pagehide', saveScroll);
 
 export function parse(path){
   const [view = '', id = '', ...rest] = path.split('/').filter(Boolean);
@@ -23,7 +29,8 @@ export function go(h, opts = {}){
   const p = String(h).replace(/^#/, '') || '/';
   if(p === curPath && !opts.force) return;
   curPath = p;
-  try { if(location.hash !== '#' + p) history[opts.replace ? 'replaceState' : 'pushState'](null, '', location.pathname + location.search + '#' + p); } catch(e){}
+  if(!opts.replace) saveScroll();
+  try { if(location.hash !== '#' + p) history[opts.replace ? 'replaceState' : 'pushState']({ y: 0 }, '', location.pathname + location.search + '#' + p); } catch(e){}
   route();
 }
 document.addEventListener('click', e => {
@@ -31,7 +38,14 @@ document.addEventListener('click', e => {
   if(!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey) return;
   e.preventDefault(); go(a.getAttribute('href'));
 });
-function fromLocation(){ const h = location.hash.slice(1) || '/'; if(h !== curPath){ curPath = h; route(); } }
+/* Back/forward. On phones the browser has already animated the swipe, so we just swap the page in
+   place (no second animation) and put the scroll back where it was. */
+function fromLocation(e){
+  const h = location.hash.slice(1) || '/';
+  if(h === curPath) return;
+  curPath = h;
+  route(false, { pop: true, y: (e && e.state && e.state.y) || (history.state && history.state.y) || 0 });
+}
 window.addEventListener('popstate', fromLocation);
 window.addEventListener('hashchange', fromLocation);
 
@@ -65,17 +79,17 @@ function setNav(section){
   placeIndicators();
 }
 
-export function route(keepScroll){
+export function route(keepScroll, nav = {}){
   const next = parse(curPath);
   const dir = direction(next);
   document.documentElement.dataset.dir = dir;
   const render = () => {
     setNav(next.section);
     (views[next.view] || views.home)(next);
-    if(!keepScroll) try { window.scrollTo(0, 0); } catch(e){}
+    if(!keepScroll) try { window.scrollTo(0, nav.y || 0); } catch(e){}
     shown = next;
   };
-  const animate = !first && !keepScroll && !reducedMotion();
+  const animate = !first && !keepScroll && !reducedMotion() && !(nav.pop && touch.matches);
   first = false;
   if(animate && document.startViewTransition){
     /* a quick second tap skips the running transition (its update still runs); that's expected, not an error */
