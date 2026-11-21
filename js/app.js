@@ -38,6 +38,7 @@ document.body.insertAdjacentHTML('afterbegin', `
     <div class="side-foot">${pill}</div>
   </aside>`);
 document.body.insertAdjacentHTML('beforeend', `
+  <div class="edge-blur" aria-hidden="true"><i></i><i></i><i></i></div>
   <nav class="tabbar mat-bar" aria-label="Main"><div class="rail" data-nav="tab"><span class="nav-ind" aria-hidden="true"></span>
     ${TABS.map(([k, h, l, i]) => k === 'new'
       ? `<a href="${h}" class="add" data-sec="${k}" aria-label="${l}"><span class="addbtn">${icon(i)}</span><span class="lbl">${l}</span></a>`
