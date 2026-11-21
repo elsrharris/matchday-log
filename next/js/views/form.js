@@ -139,7 +139,7 @@ export function formView(m, isNew = !m, flash = ''){
       <label class="f">Other notes<textarea name="notes" style="min-height:70px" placeholder="Programme, ticket price, pub beforehand…">${v('notes')}</textarea></label>
     </div>
 
-    <div class="savebar"><button type="button" class="btn" data-act="saveMatch">Save match</button>${isNew ? '' : `<a class="btn sec" href="#/match/${m.id}" style="flex:none">Cancel</a>`}</div>
+    <div class="savebar${isNew && !flash ? ' pending' : ''}"><button type="button" class="btn" data-act="saveMatch">Save match</button>${isNew ? '' : `<a class="btn sec" href="#/match/${m.id}" style="flex:none">Cancel</a>`}</div>
     ${datalists()}
   </form>`;
 
@@ -149,6 +149,14 @@ export function formView(m, isNew = !m, flash = ''){
   if(isNew && !m.opp && !f.ground.value && f.venue.value === 'H') f.ground.value = 'Elland Road';
   f.onsubmit = e => { e.preventDefault(); actions.saveMatch(); };
   finderInit(f, m, isNew);
+  /* on a blank Add form, Save only appears once a match is being added: picked in the finder
+     (the form re-renders filled in) or as soon as something is typed or chosen in the form itself */
+  const bar = f.querySelector('.savebar.pending');
+  if(bar){
+    const reveal = e => { if(e.target.closest('.finder')) return; bar.classList.remove('pending'); f.removeEventListener('input', reveal); f.removeEventListener('change', reveal); };
+    f.addEventListener('input', reveal); f.addEventListener('change', reveal);
+    f.addEventListener('click', e => { if(e.target.closest('[data-act="addRow"],[data-act="calcScore"]')) bar.classList.remove('pending'); });
+  }
 }
 
 actions.saveMatch = () => {
