@@ -46,6 +46,10 @@ export function settingsView(){
       <p class="small muted" style="margin-top:0">A summary of every match to open in Excel or Google Sheets (for viewing – to restore, use the backup file above).</p>
       <button class="btn sec" data-act="exportCSV">${icon('download')} Download spreadsheet (CSV)</button>
     </div>
+    <div class="card mat-panel"><h3>About</h3>
+      <p class="small muted" style="margin:0">Match facts from 2001/02 onwards come from ESPN; earlier seasons from the <a href="https://lufchistory.com" target="_blank" rel="noopener">Leeds United Historical Archive</a>. Club crests via ESPN.
+      Stadium photo: Elland Road (Revie and North stands, 2009) by MightyEagleGER, public domain, via <a href="https://commons.wikimedia.org/wiki/File:LeedsvOldham0910RevieNorthStand.jpg" target="_blank" rel="noopener">Wikimedia Commons</a>.</p>
+    </div>
     <div class="card mat-panel"><h3>Danger zone</h3><button class="btn danger" data-act="wipe">Delete all matches${cloud.user ? ' everywhere' : ' on this device'}</button></div>`;
 }
 
