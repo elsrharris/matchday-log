@@ -1,22 +1,43 @@
 # Matchday Log
 
-A mobile-first website for logging every Leeds United match one fan (the repo owner's dad) has attended, going back to 1980. Personal use only. Live at https://elsrharris.github.io/matchday-log/ (GitHub Pages, deployed from `main`, root folder).
+A website (desktop and phone) for logging every Leeds United match one fan (the repo owner's dad) has attended, going back to 1980. Personal use only. Live at https://elsrharris.github.io/matchday-log/ (GitHub Pages, deployed from `main`, root folder).
 
 ## Ground rules
 
-- **One file, no build step.** Everything is in `index.html` (vanilla JS, inline CSS). No npm, no bundler, no frameworks. Libraries only via CDN `import()`.
+- **No build step, no dependencies.** Native ES modules (`js/`) and plain CSS (`css/`) served as-is by GitHub Pages. No npm, no bundler, no frameworks, no animation library. Libraries only via CDN `import()` (Firebase).
 - **The end user is an older fan who mostly uses a desktop computer, and sometimes an iPhone.** Design desktop first, and it must also work well on a phone. Keep the UI plain-English, readable text, big click/tap targets, forgiving. Test at both sizes (Playwright desktop viewport ~1440×900, and `devices['iPhone 13']`).
 - A full visual redesign is planned by the repo owner (an experienced web developer) in Figma. Build from their frames when they share them, rather than inventing a new look.
 - **Colours:** Leeds blue `#1D428A`, yellow `#FFCD00`, white. **No club crest** (the header uses a yellow "LUFC" roundel instead).
 - **Never lose his data.** Anything touching storage or sync needs a test that proves nothing is dropped or resurrected.
 - Pushing to `main` deploys straight to the live site. Use a branch for unfinished work.
 
-## How the app works (`index.html`)
+## How the app works
 
-- **Routing:** hash routes (`#/`, `#/match/:id`, `#/new`, `#/edit/:id`, `#/stats`, `#/data`) handled by `go()` / `route()`, using pushState plus click interception so it also works in sandboxed previews. `route(true)` re-renders without scrolling; `rerender()` skips the form views so a sync never wipes a half-filled form.
-- **Saving:** the Save button calls `submitMatch()` in JS (not a form submit). `readForm(f, m)` turns the form into a match object. Plain fields are listed in `SCALARS`; repeating rows (goals, subs, cards, lineup, bench) are defined in `ROWDEF`.
+Liquid-glass redesign (dark by default; Light/System in Settings). Files:
+
+| File | Role |
+|---|---|
+| `index.html` | Shell + inline script that applies the saved theme (`mdl-theme`) before first paint |
+| `css/tokens.css` | Design tokens: colours (dark + `[data-theme="light"]`), glass, chart series, type, spacing, motion (gentle `--spring`) |
+| `css/app.css` | Base, glass materials (`.mat-panel`, `.mat-raised`, `.mat-bar`, `.mat-read`; specular rim via masked `::before`; solid fallbacks), phone tab bar + desktop sidebar (≥900px), page transitions, progressive blur under the dock, shared form/controls |
+| `css/screens.css` | Per-screen styles: crests, stadium stage photo, Home, Matches, Match Centre, Stats charts, Squad/player, form sections, Settings, toast/tooltip |
+| `js/core.js` | Storage, `db` (shared object – mutate, don't reassign), tombstones, `save()`, helpers, `DEMO`/`PREVIEW`/`BASE` |
+| `js/sync.js` | Firebase sync (logic unchanged from the single-file version) |
+| `js/importers.js` | ESPN + archive importers, `nextFixture()` |
+| `js/calc.js` | Stats from logged matches only: `record`, `overall`, `players`, `bySeason`, `venueSplit` |
+| `js/crests.js` | Crest lookup (`data/crests.json`), ESPN logo CDN (resized), dark variants with fallback → standard → monogram |
+| `js/router.js` | Hash routes, sliding nav highlight, transitions, scroll restoration |
+| `js/ui.js` | SVG icons, delegated actions (`data-act` / `data-change` – no inline handlers or globals), tooltip, reveal-on-scroll, toast, and `sheet()` / `notice()` – an accessible `<dialog>` (bottom sheet on phone, centred on desktop). **Never use `alert` / `confirm` / `prompt`.** Destructive sheets focus the safe button; Esc / backdrop cancels |
+| `js/theme.js` | Appearance preference |
+| `js/views/*.js` | home, matches, match (Match Centre), form (Add/Edit + finder), stats, squad (+ player profile), settings |
+| `js/app.js` | Builds the shell, registers views, loads crests, starts demo or sync. `window.MDL` is a debug/test handle |
+
+- **Routing:** `#/` Home, `#/matches`, `#/match/:id`, `#/new`, `#/edit/:id`, `#/stats`, `#/squad`, `#/player/:name`, `#/settings` (`#/data` still works). Direction-aware page transitions use the View Transitions API on desktop with the nav excluded from the snapshot so its highlight glides live; touch devices use a CSS animation instead (VT snapshots flatten glass on iOS). Back/forward restores scroll; on touch it doesn't animate (the browser already did). `rerender()` never redraws an open form.
+- **Saving:** `submitMatch` is `actions.saveMatch` in `views/form.js`; `readForm(f, m)` builds the match (fields in `SCALARS`, rows in `ROWDEF`). The form is in collapsible sections with live summaries, venue and rating are radio groups, validation is inline, and a toast confirms. On a blank Add form Save appears only once a match is being added.
+- **Charts** follow the dataviz skill: one axis, thin bars, values in a fixed column, legend for two series, tooltips, table view. Series colours are validated tokens (`--series-1/2`).
 - **Match object:** scalar strings (`date`, `ko`, `comp`, `round`, `opp`, `venue` H/A/N, `ground`, `att`, `ref`, `manager`, `ls`/`os` Leeds/opp score, `htl`/`hto` half-time, `ftl`/`fto` 90-min score when `et`, `pl`/`po` penalties when `pens`, `formation`, `oppXI`, review fields `rating`, `motm`, `review`, `with`, `seat`, `notes`), source ids `espnId`/`espnLg`/`histId`, row arrays, plus `id`, `created`, `updated` (ISO). Goal/card/sub rows have `t: 'L' | 'O'` for team; an own goal is recorded under the team it counted for, with the player who put it in.
-- **Storage:** `localStorage` key `lufc-matchday-log-v1`, shape `{ matches, meta, tomb }`, with an in-memory fallback when storage is blocked (shows a "preview mode" banner). Backup tab (`#/data`, labelled "Sync") also has JSON export/import (merge or replace) and CSV export.
+- **Storage:** `localStorage` key `lufc-matchday-log-v1`, shape `{ matches, meta, tomb }`, with an in-memory fallback when storage is blocked. Settings has backup download, restore (merge or replace) and CSV export.
+- **Images:** `assets/img/stadium-{900,1600}.webp` – public-domain Elland Road photo (Wikimedia Commons, MightyEagleGER), graded navy; credited in Settings › About. Crests hotlinked from ESPN (`a.espncdn.com/combiner`).
 
 ### Cloud sync (Firebase)
 
@@ -40,20 +61,25 @@ A mobile-first website for logging every Leeds United match one fan (the repo ow
   - Doesn't have: opposition scorers, half-time scores, away grounds, kick-off times, referees, shirt numbers, League Cup rounds, shoot-out scores; extra time is often unflagged. 166 matches have some Leeds scorers unknown — those get a note in `notes`.
   - Rebuild: `tools/history/fetch.py` (polite, ~1 request/second, caches pages in `tools/history/raw/`, git-ignored) then `tools/history/parse.py`. Sanity-check season totals against the record books after any change (e.g. 1991-92 First Division: W22 D16 L4, 74–37, 82 pts).
 
+## Preview of unfinished work
+
+`tools/build-preview.sh <checkout> <dir>` builds a **demo-only** copy (forced demo mode, data read from `../data/`). The liquid-glass redesign was reviewed this way at `/next/` on `main` and went live on 21 Nov 2026 (the `/next/` folder was then removed; the `redesign` branch holds its history). Use the same approach for future big changes: work on a branch, publish a demo-only preview to a sub-folder of `main`, merge when approved. The preview shares an origin with the live app, so it must never be able to read or write real data – keep the forced demo flag.
+
 ## Demo mode (design work and screenshots)
 
-Add `?demo` before the hash, e.g. `https://elsrharris.github.io/matchday-log/?demo#/match/demo-tottenham-2026`. Loads `data/demo.json` (14 real matches from ESPN and the archive, with fictional reviews) into memory only: nothing is written to localStorage, Firebase isn't loaded, and sign-in buttons do nothing. `?demo=empty` shows empty states, `?demo=signedin` shows sync switched on, and `#/new/<demo id>` shows the Add form already filled in. In demo mode the finder opens on 1991/92 (served from this site, so it always loads). Regenerate `data/demo.json` with the app's own `espnToMatch()` / `histToMatch()` so it stays in step with the importers.
+Add `?demo` before the hash, e.g. `https://elsrharris.github.io/matchday-log/?demo#/match/demo-tottenham-2026`. Loads `data/demo.json` (14 real matches from ESPN and the archive, with fictional reviews) into memory only: nothing is written to localStorage, Firebase isn't loaded, and sign-in buttons do nothing. `?demo=empty` shows empty states, `?demo=signedin` shows sync switched on, and `#/new/<demo id>` shows the Add form already filled in. Regenerate `data/demo.json` with the app's own `espnToMatch()` / `histToMatch()` so it stays in step with the importers.
 
 ## Testing
 
 There is no test suite; test with Playwright scripts in the scratchpad (Chromium is pre-installed, `require('playwright')` works).
-- Serve the repo with a tiny Node `http` server so `data/history/*.json` loads.
+- Serve the repo with a tiny Node `http` server (correct MIME types: `.js` must be `text/javascript` for modules) so `data/` and `assets/` load.
+- Tests reach app state through `window.MDL` (`db`, `cloud`, `save`, `readForm`).
 - Firebase: the gstatic CDN may be blocked from the sandbox; route `https://www.gstatic.com/firebasejs/12.19.0/*` to the same files from `npm i firebase@12.19.0` (`node_modules/firebase/firebase-*.js`). Test sync with two browser contexts signed in to a throwaway email/password account against the real project, and always delete the test docs and account afterwards (make cleanup run even if the test fails).
 - Google sign-in can't be automated; ask the user to check it on the live site.
 
 ## Cloud environment
 
-Sessions for this repo should use the personal cloud environment **`matchday-log`**, which allows: `site.api.espn.com`, `site.web.api.espn.com`, `sports.core.api.espn.com`, `www.gstatic.com`, `firestore.googleapis.com`, `identitytoolkit.googleapis.com`, `securetoken.googleapis.com`, `lufchistory.com`, `www.lufchistory.com`. `github.io` is not reachable from it, so the live site can't be checked from the sandbox.
+Sessions for this repo should use the personal cloud environment **`matchday-log`**, which allows: `site.api.espn.com`, `site.web.api.espn.com`, `sports.core.api.espn.com`, `www.gstatic.com`, `firestore.googleapis.com`, `identitytoolkit.googleapis.com`, `securetoken.googleapis.com`, `lufchistory.com`, `www.lufchistory.com`, `a.espncdn.com` (crests), `commons.wikimedia.org`, `upload.wikimedia.org` (photos; rate-limited). `github.io` is not reachable from it, so the live site can't be checked from the sandbox.
 
 ## Open items / ideas
 
