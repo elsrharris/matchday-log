@@ -256,6 +256,8 @@ button.add{border:0;background:none;color:var(--accent-text);font-weight:700;pad
 /* above the progressive blur (35), below the dock (40), so the button stays crisp */
 .savebar{position:sticky;bottom:calc(88px + env(safe-area-inset-bottom));display:flex;gap:var(--s2);padding:var(--s3) 0;z-index:38}
 .savebar .btn{flex:1;min-height:52px;box-shadow:var(--shadow-lg)}
+.savebar{transition:opacity var(--dur) var(--ease-out),transform var(--dur-slow) var(--spring),visibility 0s}
+.savebar.pending{opacity:0;transform:translateY(24px);visibility:hidden;pointer-events:none;transition:opacity var(--dur) var(--ease-out),transform var(--dur) var(--ease-out),visibility 0s var(--dur)}
 @media (min-width:900px){ .savebar{bottom:var(--s4)} }
 .flash{border-radius:var(--r);padding:var(--s3) var(--s4);margin-bottom:var(--s3);font-size:var(--fs-sm);background:rgba(48,194,107,.12);border:1px solid rgba(48,194,107,.35)}
 /* finder */
