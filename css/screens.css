@@ -366,3 +366,15 @@ dialog.sheet::before{inset:0}
 
 /* smaller list scores: a hair of space around the dash */
 .score-pill,.fx .sc{word-spacing:0;letter-spacing:.04em}
+
+/* Hidden glass must not exist visually: iOS Safari keeps applying backdrop-filter to elements at opacity 0,
+   which blurred the header where the parked toast sat. When not showing, the toast and tooltip are
+   visibility:hidden (after their fade) and have no backdrop at all. */
+.toast,.tip{visibility:hidden}
+.toast:not(.on),.tip:not(.on){-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.toast:not(.on)::before,.tip:not(.on)::before{display:none}
+.toast{transition:transform var(--dur-slow) var(--spring),opacity var(--dur) var(--ease-out),visibility 0s linear var(--dur-slow)}
+.tip{transition:opacity 120ms,transform 120ms,visibility 0s linear 120ms}
+.toast.on,.tip.on{visibility:visible;transition-delay:0s}
+/* phones: the toast drops in just below the header bar, never over it */
+@media (max-width:899px){ .toast{top:calc(64px + env(safe-area-inset-top))} }

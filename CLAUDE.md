@@ -8,6 +8,7 @@ A website (desktop and phone) for logging every Leeds United match one fan (the 
 - **The end user is an older fan who mostly uses a desktop computer, and sometimes an iPhone.** Design desktop first, and it must also work well on a phone. Keep the UI plain-English, readable text, big click/tap targets, forgiving. Test at both sizes (Playwright desktop viewport ~1440×900, and `devices['iPhone 13']`).
 - A full visual redesign is planned by the repo owner (an experienced web developer) in Figma. Build from their frames when they share them, rather than inventing a new look.
 - **Colours:** Leeds blue `#1D428A`, yellow `#FFCD00`, white. **No club crest** (the header uses a yellow "LUFC" roundel instead).
+- **Nothing may ever blur the header bar.** Overlays (toast etc.) appear below it on phones, and any glass element that is hidden must be `visibility:hidden` with no `backdrop-filter` – iOS Safari keeps blurring behind glass at `opacity:0`.
 - **Never lose his data.** Anything touching storage or sync needs a test that proves nothing is dropped or resurrected.
 - Pushing to `main` deploys straight to the live site. Use a branch for unfinished work.
 
