@@ -196,6 +196,11 @@ textarea{min-height:120px;resize:vertical;line-height:1.5}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--field-focus);box-shadow:0 0 0 3px color-mix(in srgb,var(--field-focus) 30%,transparent)}
 select{appearance:none;-webkit-appearance:none;padding-right:34px;background-image:linear-gradient(45deg,transparent 50%,var(--text-2) 50%),linear-gradient(135deg,var(--text-2) 50%,transparent 50%);
   background-position:calc(100% - 18px) 52%,calc(100% - 13px) 52%;background-size:5px 5px;background-repeat:no-repeat}
+/* iOS Safari gives date/time inputs an intrinsic minimum width that overflows narrow grid columns */
+input[type="date"],input[type="time"]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;text-align:left}
+input[type="date"]::-webkit-date-and-time-value,input[type="time"]::-webkit-date-and-time-value{text-align:left}
+input[type="date"]::-webkit-calendar-picker-indicator,input[type="time"]::-webkit-calendar-picker-indicator{opacity:.6}
+.grid > label.f{min-width:0}
 input[type="checkbox"]{width:22px;height:22px;min-height:0;accent-color:var(--accent)}
 input[type="file"]{padding:8px}
 ::placeholder{color:var(--text-3)}
@@ -248,7 +253,8 @@ label.f > input,label.f > select,label.f > textarea{margin-top:4px}
 .row .x{flex:none;width:var(--touch);height:var(--touch);border:0;background:none;color:var(--text-3);cursor:pointer;border-radius:50%}
 .row label.chk{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--text-2);flex:none}
 button.add{border:0;background:none;color:var(--accent-text);font-weight:700;padding:10px 0;cursor:pointer}
-.savebar{position:sticky;bottom:calc(88px + env(safe-area-inset-bottom));display:flex;gap:var(--s2);padding:var(--s3) 0;z-index:5}
+/* above the progressive blur (35), below the dock (40), so the button stays crisp */
+.savebar{position:sticky;bottom:calc(88px + env(safe-area-inset-bottom));display:flex;gap:var(--s2);padding:var(--s3) 0;z-index:38}
 .savebar .btn{flex:1;min-height:52px;box-shadow:var(--shadow-lg)}
 @media (min-width:900px){ .savebar{bottom:var(--s4)} }
 .flash{border-radius:var(--r);padding:var(--s3) var(--s4);margin-bottom:var(--s3);font-size:var(--fs-sm);background:rgba(48,194,107,.12);border:1px solid rgba(48,194,107,.35)}
