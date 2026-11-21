@@ -2,7 +2,7 @@
 import { db, DEMO, SS, save, $, $$, esc, uid, fmtDate, venueTxt, minVal, scoreTxt, sorted, seasonStart, curSeason, seasonLbl } from '../core.js';
 import { HIST_FIRST, seasonFixtures, histToMatch, espnJSON, espnToMatch } from '../importers.js';
 import { go, app } from '../router.js';
-import { actions, icon, toast } from '../ui.js';
+import { actions, icon, toast, sheet } from '../ui.js';
 
 export const ROWDEF = {
   lineup: [['n','#','num'],['name','Player','txt'],['cap','C','chk']],
@@ -270,7 +270,8 @@ function finderInit(f, m, isNew){
   };
   const load = async () => {
     const my = ++token, v = sel.value;
-    box.innerHTML = `<p class="small muted" style="padding:8px 2px">Loading ${v === 'all' ? 'every season – this takes a few seconds' : seasonLbl(+v)}…</p>`;
+    box.innerHTML = `<p class="sr-only" role="status">Loading ${v === 'all' ? 'every season' : seasonLbl(+v)}…</p>${v === 'all' ? '<p class="small muted" style="padding:8px 2px 0">Loading every season – this takes a few seconds…</p>' : ''}` +
+      Array.from({ length: 5 }, () => `<div class="fx-skel" aria-hidden="true"><span class="skeleton" style="width:30px;height:30px;border-radius:9px"></span><span style="flex:1;display:grid;gap:6px"><span class="skeleton" style="height:14px;width:55%"></span><span class="skeleton" style="height:11px;width:75%"></span></span><span class="skeleton" style="width:34px;height:16px"></span></div>`).join('');
     try {
       const ys = v === 'all' ? Array.from({length: curSeason() - HIST_FIRST + 1}, (_, i) => HIST_FIRST + i) : [+v];
       const lists = []; let fails = 0;
@@ -293,10 +294,16 @@ function finderInit(f, m, isNew){
     const b = e.target.closest('.fx'); if(!b) return;
     const fx = fxs.find(x => x.key === b.dataset.k); if(!fx) return;
     const dup = db.matches.find(x => x.id !== m.id && (('e' + x.espnId) === fx.key || ('h' + x.histId) === fx.key || (x.date === fx.date && lc(x.opp) === lc(fx.opp))));
-    if(dup && confirm(`You've already logged this match (${fmtDate(fx.date)} v ${dup.opp}).\n\nOK = open it\nCancel = carry on adding it again`)){ go('#/match/' + dup.id); return; }
+    if(dup){
+      const c = await sheet({ title: 'Already logged', message: `You've already logged this match: ${fmtDate(fx.date)} v ${dup.opp}.`,
+        actions: [{ label: 'Open that match', value: 'open', style: 'primary' }, { label: 'Add it again anyway', value: 'add', style: 'secondary' }] });
+      if(c === 'open'){ go('#/match/' + dup.id); return; }
+      if(c !== 'add') return;
+    }
     const cur = readForm(f, m);
     const hasData = (cur.goals || []).length || (cur.lineup || []).some(p => p.name) || cur.ls !== '';
-    if(!isNew && hasData && !confirm('Replace the fixture, score, goals, line-ups, subs and cards with the online data?\n\nYour review, rating and notes are kept.')) return;
+    if(!isNew && hasData && !(await sheet({ title: 'Replace the match details?', message: 'The fixture, score, goals, line-ups, subs and cards will be replaced with the online data.\n\nYour review, rating and notes are kept.',
+      actions: [{ label: 'Replace details', value: true, style: 'primary' }, { label: 'Keep what I have', value: false, style: 'secondary' }] }))) return;
     let filled, msg;
     if(fx.src === 'hist'){
       filled = histToMatch(fx.h, cur);

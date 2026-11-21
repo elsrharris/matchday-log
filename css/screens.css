@@ -330,3 +330,31 @@ button.srow:active,label.srow:active{background:rgba(255,255,255,.08)}
 .manual-body{padding:0 var(--s3) var(--s3)}
 .manual-body .fsec{box-shadow:none;background:var(--field);-webkit-backdrop-filter:none;backdrop-filter:none}
 .manual-body .fsec::before{display:none}
+
+/* ============ SHEETS (dialogs) ============ */
+dialog.sheet{position:fixed;inset:auto 0 0 0;margin:0 auto;width:min(560px,100%);max-height:85dvh;overflow:auto;padding:var(--s3) var(--s5) calc(var(--s5) + env(safe-area-inset-bottom));
+  border-radius:var(--r-xl) var(--r-xl) 0 0;color:var(--text);transform:translateY(100%);opacity:.6;transition:transform 360ms var(--spring),opacity 200ms var(--ease-out)}
+dialog.sheet.on{transform:none;opacity:1}
+dialog.sheet::backdrop{background:rgba(4,8,18,.45);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;transition:opacity 220ms var(--ease-out)}
+dialog.sheet.on::backdrop{opacity:1}
+:root[data-theme="light"] dialog.sheet::backdrop{background:rgba(16,45,90,.22)}
+.sheet-grab{width:40px;height:5px;border-radius:3px;background:var(--glass-border);margin:0 auto var(--s4)}
+dialog.sheet h2{margin:0 0 var(--s2);font-size:var(--fs-lg)}
+.sheet-msg p{margin:0 0 var(--s2);color:var(--text-2);line-height:1.5}
+.sheet-acts{display:grid;gap:var(--s2);margin-top:var(--s4)}
+.sheet-acts .btn{min-height:52px;width:100%}
+.btn.danger-solid{background:var(--loss);color:#fff}
+dialog.sheet .f{margin-top:var(--s3)}
+@media (min-width:900px){
+  dialog.sheet{inset:0;margin:auto;height:fit-content;width:min(460px,calc(100% - 48px));border-radius:var(--r-xl);padding:var(--s6);transform:translateY(12px) scale(.97);opacity:0}
+  dialog.sheet.on{transform:none;opacity:1}
+  .sheet-grab{display:none}
+  .sheet-acts{grid-auto-flow:column;grid-auto-columns:1fr;direction:rtl} /* primary on the right, like macOS */
+  .sheet-acts .btn{direction:ltr;min-height:46px}
+}
+
+.fx-skel{display:flex;align-items:center;gap:var(--s3);padding:12px 2px;border-bottom:1px solid var(--sep)}
+main#app:focus{outline:none}
+.mrow:focus-visible,.pcard:focus-visible,.fixture:focus-visible,.form-dot:focus-visible,.srow:focus-visible,.fx:focus-visible,.hl-list a:focus-visible,.rank2 a:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:var(--r)}
+.fsec > summary:focus-visible,.manual > summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:var(--r-lg)}
+@media (prefers-reduced-motion:reduce){ .skeleton{animation:none} }

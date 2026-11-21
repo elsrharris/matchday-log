@@ -2,7 +2,7 @@
    On phones those three are tabs; on desktop they sit side by side in two columns. */
 import { db, SS, save, esc, fmtDate, minVal, minTxt, num, res, seasonOf, venueTxt } from '../core.js';
 import { app, go } from '../router.js';
-import { actions, icon } from '../ui.js';
+import { actions, icon, sheet, toast } from '../ui.js';
 import { crest } from '../crests.js';
 import { fixtureRow } from './home.js';
 
@@ -154,9 +154,12 @@ actions.mcTab = el => {
 };
 /* back button: use history when we came from inside the app, so the list keeps its scroll position */
 actions.back = () => { if(history.length > 1 && history.state) history.back(); else go('#/matches'); };
-actions.delMatch = el => {
-  if(!confirm('Delete this match for good?')) return;
-  db.matches = db.matches.filter(m => m.id !== el.dataset.id); save(); go('#/matches');
+actions.delMatch = async el => {
+  const m = db.matches.find(x => x.id === el.dataset.id); if(!m) return;
+  const ok = await sheet({ title: 'Delete this match?', message: `${fmtDate(m.date)} v ${m.opp || 'opponent'} will be removed for good${'' }, including your review.`,
+    actions: [{ label: 'Delete match', value: true, style: 'danger' }, { label: 'Cancel', value: false, style: 'secondary' }] });
+  if(!ok) return;
+  db.matches = db.matches.filter(x => x.id !== m.id); save(); go('#/matches'); toast('Match deleted');
 };
 actions.dupMatch = el => {
   const m = db.matches.find(x => x.id === el.dataset.id); if(!m) return;

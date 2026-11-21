@@ -27,7 +27,7 @@ Liquid-glass redesign (dark by default; Light/System in Settings). Files:
 | `js/calc.js` | Stats from logged matches only: `record`, `overall`, `players`, `bySeason`, `venueSplit` |
 | `js/crests.js` | Crest lookup (`data/crests.json`), ESPN logo CDN (resized), dark variants with fallback → standard → monogram |
 | `js/router.js` | Hash routes, sliding nav highlight, transitions, scroll restoration |
-| `js/ui.js` | SVG icons, delegated actions (`data-act` / `data-change` – no inline handlers or globals), tooltip, reveal-on-scroll, toast |
+| `js/ui.js` | SVG icons, delegated actions (`data-act` / `data-change` – no inline handlers or globals), tooltip, reveal-on-scroll, toast, and `sheet()` / `notice()` – an accessible `<dialog>` (bottom sheet on phone, centred on desktop). **Never use `alert` / `confirm` / `prompt`.** Destructive sheets focus the safe button; Esc / backdrop cancels |
 | `js/theme.js` | Appearance preference |
 | `js/views/*.js` | home, matches, match (Match Centre), form (Add/Edit + finder), stats, squad (+ player profile), settings |
 | `js/app.js` | Builds the shell, registers views, loads crests, starts demo or sync. `window.MDL` is a debug/test handle |

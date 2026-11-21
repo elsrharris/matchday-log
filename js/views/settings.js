@@ -2,7 +2,7 @@
 import { db, save, esc, uid, sorted, seasonOf, venueTxt, res, minTxt, $ } from '../core.js';
 import { cloud, syncStateText, cloudGoogle, cloudEmail, cloudReset, cloudSignOut } from '../sync.js';
 import { app, go, route } from '../router.js';
-import { actions, icon } from '../ui.js';
+import { actions, icon, sheet, notice, toast } from '../ui.js';
 import { getPref, setPref } from '../theme.js';
 
 function syncCardHTML(){
@@ -93,17 +93,29 @@ actions.exportCSV = () => {
 actions.importJSON = input => {
   const file = input.files[0]; if(!file) return;
   const rd = new FileReader();
-  rd.onload = () => {
-    try {
-      const d = JSON.parse(rd.result); if(!d || !Array.isArray(d.matches)) throw new Error('Not a Matchday Log backup file');
-      const replace = db.matches.length && confirm(`Backup has ${d.matches.length} matches.\n\nOK = REPLACE everything on this device with the backup\nCancel = MERGE (add any matches not already here)`);
-      if(replace || !db.matches.length){ const t = new Date().toISOString(); db.matches = d.matches.map(m => ({...m, id: m.id || uid(), updated: t})); }
-      else { const ids = new Set(db.matches.map(m => m.id)); d.matches.forEach(m => { if(!ids.has(m.id)) db.matches.push(m); else { const i = db.matches.findIndex(x => x.id === m.id); if((m.updated || '') > (db.matches[i].updated || '')) db.matches[i] = m; } }); }
-      save(); alert('Done – ' + db.matches.length + ' matches on this device.'); go('#/matches');
-    } catch(e){ alert('Could not read that file: ' + e.message); }
+  rd.onload = async () => {
+    input.value = '';
+    let d;
+    try { d = JSON.parse(rd.result); if(!d || !Array.isArray(d.matches)) throw new Error('it isn\'t a Matchday Log backup file'); }
+    catch(e){ notice('Couldn\'t read that file', 'Please choose a backup file made by this site (' + e.message + ').'); return; }
+    let how = 'replace';
+    if(db.matches.length){
+      how = await sheet({ title: 'Restore from backup', message: `The backup has ${d.matches.length} matches. This device has ${db.matches.length}.\n\nMerge adds any matches that aren't here yet (and newer versions of ones that are). Replace makes this device match the backup exactly.`,
+        actions: [{ label: 'Merge into my matches', value: 'merge', style: 'primary' }, { label: 'Replace everything', value: 'replace', style: 'danger' }, { label: 'Cancel', value: null, style: 'secondary' }] });
+      if(!how) return;
+    }
+    if(how === 'replace'){ const t = new Date().toISOString(); db.matches = d.matches.map(m => ({...m, id: m.id || uid(), updated: t})); }
+    else { const ids = new Set(db.matches.map(m => m.id)); d.matches.forEach(m => { if(!ids.has(m.id)) db.matches.push(m); else { const i = db.matches.findIndex(x => x.id === m.id); if((m.updated || '') > (db.matches[i].updated || '')) db.matches[i] = m; } }); }
+    save(); toast(`Done – ${db.matches.length} matches on this device`); go('#/matches');
   };
   rd.readAsText(file);
 };
-actions.wipe = () => {
-  if(prompt(cloud.user ? 'This deletes ALL matches – on this device, in the cloud and on every device you\'re signed in on. Type DELETE to confirm.' : 'This deletes ALL matches on this device. Type DELETE to confirm.') === 'DELETE'){ db.matches = []; save(); go('#/matches'); }
+actions.wipe = async () => {
+  const r = await sheet({ title: cloud.user ? 'Delete every match, everywhere?' : 'Delete every match on this device?',
+    message: (cloud.user ? 'This deletes all your matches – on this device, in the cloud and on every device you\'re signed in on.' : 'This deletes all the matches saved on this device.') + '\n\nIt can\'t be undone. Type DELETE to confirm.',
+    input: { label: 'Type DELETE', placeholder: 'DELETE' },
+    actions: [{ label: 'Delete everything', value: true, style: 'danger', needs: 'DELETE' }, { label: 'Cancel', value: false, style: 'secondary' }] });
+  if(!r.value || r.text.trim() !== 'DELETE') return;
+  db.matches = []; save(); go('#/matches'); toast('All matches deleted');
 };
+

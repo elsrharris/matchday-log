@@ -42,7 +42,7 @@ function trackDeletes(){
 export function saveLocal(){
   if(DEMO !== null) return true;
   try { LS.put(KEY, JSON.stringify(db)); return true; }
-  catch(e){ alert('Could not save on this device: ' + e.message + '\nPlease download a backup from Settings.'); return false; }
+  catch(e){ import('./ui.js').then(u => u.notice('Couldn\'t save on this device', 'The browser refused to store the match (' + e.message + ').\n\nPlease download a backup file from Settings so nothing is lost.')); return false; }
 }
 /* hooks filled in by other modules (avoids circular imports) */
 export const hooks = { afterSave: () => {}, rerender: () => {} };
